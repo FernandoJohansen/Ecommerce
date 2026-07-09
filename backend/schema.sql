@@ -1,0 +1,118 @@
+-- Run this in the Supabase SQL Editor to set up the schema.
+
+-- ── Tables ──────────────────────────────────────────────────────────────────
+
+CREATE TABLE produtos (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome        TEXT        NOT NULL,
+  tamanhos    TEXT[]      NOT NULL,
+  descricao   TEXT,
+  tag         TEXT,
+  ordem       INTEGER     DEFAULT 0,
+  ativo       BOOLEAN     DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE aromas (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome        TEXT        NOT NULL,
+  ativo       BOOLEAN     DEFAULT TRUE,
+  ordem       INTEGER     DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE pedidos (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  produto_nome  TEXT        NOT NULL,
+  tamanho       TEXT        NOT NULL,
+  aroma         TEXT        NOT NULL,
+  refil         BOOLEAN     DEFAULT FALSE,
+  quantidade    INTEGER     NOT NULL DEFAULT 1,
+  nome_cliente  TEXT,
+  observacoes   TEXT,
+  status        TEXT        DEFAULT 'novo',
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── RLS ─────────────────────────────────────────────────────────────────────
+
+ALTER TABLE produtos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aromas   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pedidos  ENABLE ROW LEVEL SECURITY;
+
+-- Public reads for the storefront
+CREATE POLICY "produtos_public_read"  ON produtos FOR SELECT USING (ativo = TRUE);
+CREATE POLICY "aromas_public_read"    ON aromas   FOR SELECT USING (ativo = TRUE);
+
+-- Anyone can submit an order (anon key is sufficient)
+CREATE POLICY "pedidos_public_insert" ON pedidos  FOR INSERT WITH CHECK (TRUE);
+
+-- Only authenticated users (Supabase dashboard / service role) can read/manage orders and manage catalogue
+CREATE POLICY "pedidos_auth_all"      ON pedidos  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "produtos_auth_all"     ON produtos FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "aromas_auth_all"       ON aromas   FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- ── Grants ───────────────────────────────────────────────────────────────────
+-- Anon role can read products/aromas and submit orders; management via service role
+GRANT SELECT ON TABLE produtos TO anon;
+GRANT SELECT ON TABLE aromas   TO anon;
+GRANT INSERT ON TABLE pedidos  TO anon;
+
+-- ── Carrinho ─────────────────────────────────────────────────────────────────
+-- Cart items live per authenticated user. Access is backend-only (service
+-- role); RLS is enabled with no policies so anon/authenticated keys are denied.
+
+CREATE TABLE carrinho_itens (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID        NOT NULL,
+  produto_nome  TEXT        NOT NULL,
+  tamanho       TEXT        NOT NULL,
+  aroma         TEXT        NOT NULL,
+  refil         BOOLEAN     DEFAULT FALSE,
+  quantidade    INTEGER     NOT NULL DEFAULT 1,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX carrinho_itens_user_idx ON carrinho_itens (user_id);
+
+ALTER TABLE carrinho_itens ENABLE ROW LEVEL SECURITY;
+
+-- ── RBAC: papéis de usuário ──────────────────────────────────────────────────
+-- One row per user with an elevated role; users without a row are customers.
+-- Backend-only (service role): RLS enabled with no policies.
+
+CREATE TABLE user_roles (
+  user_id     UUID        PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  role        TEXT        NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'staff', 'admin')),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
+
+-- ── Storage: avatars ─────────────────────────────────────────────────────────
+-- Public-read bucket for profile pictures; uploads go through the backend
+-- (service role), so no storage policies are needed.
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', TRUE)
+ON CONFLICT (id) DO NOTHING;
+
+-- ── Seed data ────────────────────────────────────────────────────────────────
+
+INSERT INTO produtos (nome, tamanhos, descricao, tag, ordem) VALUES
+  ('Difusor de Vidro',     ARRAY['250ml', '500ml'],       'Disponível em 250ml e 500ml. Frasco em vidro com fitas e varetas pretas.', 'Linha Premium',          1),
+  ('Difusor PET',          ARRAY['250ml'],                 'Tamanho único 250ml. Praticidade em embalagem leve e resistente.',          'Tamanho único',          2),
+  ('Home Spray',           ARRAY['120ml', '250ml'],        'Borrife e perfume o ambiente em segundos. Fixação prolongada.',             'Aplicação rápida',       3),
+  ('Refil',                ARRAY['250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes.',       'Recarregue & economize', 4);
+
+INSERT INTO aromas (nome, ordem) VALUES
+  ('Alecrim',           1),
+  ('Lavanda',           2),
+  ('Capim-limão',       3),
+  ('Madeiras Nobres',   4),
+  ('Flor de Laranjeira',5),
+  ('Baunilha & Âmbar',  6),
+  ('Bambu',             7),
+  ('Algodão Egípcio',   8),
+  ('Frutas Vermelhas',  9),
+  ('Tabaco & Couro',   10);
