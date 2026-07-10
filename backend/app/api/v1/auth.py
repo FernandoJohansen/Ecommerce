@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from supabase_auth.errors import AuthApiError
 
 from app.core.config import SUPABASE_KEY, SUPABASE_URL
-from app.core.database import supabase
+from app.core.database import supabase, supabase_auth
 from app.core.roles import ROLE_ADMIN
 from app.core.security import bearer_scheme
 from app.dependencies.auth import get_current_user, resolve_role
@@ -59,7 +59,7 @@ def _profile_from_gotrue(data: dict) -> ProfileResponse:
 @router.post("/login", response_model=LoginResponse)
 def login(body: LoginRequest):
     try:
-        response = supabase.auth.sign_in_with_password({"email": body.email, "password": body.password})
+        response = supabase_auth.auth.sign_in_with_password({"email": body.email, "password": body.password})
     except AuthApiError as e:
         logger.warning("Login failed: %s", e)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
@@ -78,7 +78,7 @@ def login(body: LoginRequest):
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(body: SignupRequest):
     try:
-        response = supabase.auth.sign_up(
+        response = supabase_auth.auth.sign_up(
             {
                 "email": body.email,
                 "password": body.password,
@@ -113,8 +113,13 @@ def signup(body: SignupRequest):
 
 
 @router.post("/logout", status_code=204)
-def logout():
-    supabase.auth.sign_out()
+def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    # Revoke the caller's own session; the client-level sign_out would revoke
+    # whichever session happened to be stored on the shared client.
+    httpx.post(
+        f"{SUPABASE_URL}/auth/v1/logout",
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {credentials.credentials}"},
+    )
 
 
 @router.get("/me", response_model=ProfileResponse)
