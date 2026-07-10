@@ -2,10 +2,11 @@ from fastapi import Depends, HTTPException, status
 
 from app.core.config import ADMIN_EMAILS
 from app.core.roles import ROLE_ADMIN, ROLE_CUSTOMER, ROLE_STAFF, role_at_least
-from app.core.security import verify_token
+from app.core.security import verify_token, verify_token_optional
 from app.repositories.user_role_repository import get_user_role
 
 get_current_user = verify_token
+get_optional_user = verify_token_optional
 
 
 def resolve_role(user_id: str, email: str | None) -> str:

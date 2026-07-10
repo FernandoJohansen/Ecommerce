@@ -11,6 +11,8 @@ CREATE TABLE produtos (
   ordem       INTEGER     DEFAULT 0,
   ativo       BOOLEAN     DEFAULT TRUE,
   estoque     INTEGER     NOT NULL DEFAULT 0 CHECK (estoque >= 0),
+  -- Preço por tamanho, em centavos: {"250ml": 7990, "500ml": 11990}
+  precos      JSONB       NOT NULL DEFAULT '{}'::jsonb,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -25,42 +27,88 @@ CREATE TABLE aromas (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Pedido = cabeçalho (cliente, entrega, total); itens vivem em pedido_itens.
+-- Campos de cliente/entrega são nullable no banco; a obrigatoriedade é
+-- validada no backend (pedidos antigos, anteriores ao checkout, não os têm).
 CREATE TABLE pedidos (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  produto_nome  TEXT        NOT NULL,
-  tamanho       TEXT        NOT NULL,
-  aroma         TEXT        NOT NULL,
-  refil         BOOLEAN     DEFAULT FALSE,
-  quantidade    INTEGER     NOT NULL DEFAULT 1,
-  nome_cliente  TEXT,
-  observacoes   TEXT,
-  status        TEXT        DEFAULT 'novo',
-  created_at    TIMESTAMPTZ DEFAULT NOW()
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID,
+  nome_cliente    TEXT,
+  telefone        TEXT,
+  cep             TEXT,
+  rua             TEXT,
+  numero          TEXT,
+  complemento     TEXT,
+  bairro          TEXT,
+  cidade          TEXT,
+  estado          TEXT,
+  observacoes     TEXT,
+  total_centavos  INTEGER     NOT NULL DEFAULT 0 CHECK (total_centavos >= 0),
+  status          TEXT        DEFAULT 'novo',
+  created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE pedido_itens (
+  id                       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  pedido_id                UUID        NOT NULL REFERENCES pedidos (id) ON DELETE CASCADE,
+  produto_nome             TEXT        NOT NULL,
+  tamanho                  TEXT        NOT NULL,
+  aroma                    TEXT        NOT NULL,
+  refil                    BOOLEAN     DEFAULT FALSE,
+  quantidade               INTEGER     NOT NULL DEFAULT 1 CHECK (quantidade >= 1),
+  preco_unitario_centavos  INTEGER     NOT NULL CHECK (preco_unitario_centavos >= 0),
+  subtotal_centavos        INTEGER     NOT NULL CHECK (subtotal_centavos >= 0),
+  created_at               TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX pedido_itens_pedido_idx ON pedido_itens (pedido_id);
+
+-- Migration for databases created before Sprint 5 (prices + order items):
+--   ALTER TABLE produtos ADD COLUMN precos JSONB NOT NULL DEFAULT '{}'::jsonb;
+--   UPDATE produtos SET precos = '{"250ml": 7990, "500ml": 11990}' WHERE nome = 'Difusor de Vidro';
+--   UPDATE produtos SET precos = '{"250ml": 4990}'                 WHERE nome = 'Difusor PET';
+--   UPDATE produtos SET precos = '{"120ml": 3990, "250ml": 5990}'  WHERE nome = 'Home Spray';
+--   UPDATE produtos SET precos = '{"250ml": 3490, "500ml": 5490, "1L": 8990}' WHERE nome = 'Refil';
+--   ALTER TABLE pedidos
+--     ADD COLUMN user_id UUID, ADD COLUMN telefone TEXT, ADD COLUMN cep TEXT,
+--     ADD COLUMN rua TEXT, ADD COLUMN numero TEXT, ADD COLUMN complemento TEXT,
+--     ADD COLUMN bairro TEXT, ADD COLUMN cidade TEXT, ADD COLUMN estado TEXT,
+--     ADD COLUMN total_centavos INTEGER NOT NULL DEFAULT 0 CHECK (total_centavos >= 0);
+--   -- then create pedido_itens + index as above, move the old per-row item data:
+--   INSERT INTO pedido_itens (pedido_id, produto_nome, tamanho, aroma, refil, quantidade,
+--                             preco_unitario_centavos, subtotal_centavos)
+--     SELECT id, produto_nome, tamanho, aroma, refil, quantidade, 0, 0 FROM pedidos;
+--   ALTER TABLE pedidos DROP COLUMN produto_nome, DROP COLUMN tamanho, DROP COLUMN aroma,
+--     DROP COLUMN refil, DROP COLUMN quantidade;
+--   ALTER TABLE pedido_itens ENABLE ROW LEVEL SECURITY;
+--   CREATE POLICY "pedido_itens_auth_all" ON pedido_itens FOR ALL TO authenticated USING (true) WITH CHECK (true);
+--   -- direct anon inserts are no longer allowed (backend computes prices):
+--   DROP POLICY "pedidos_public_insert" ON pedidos;
+--   REVOKE INSERT ON TABLE pedidos FROM anon;
 
 -- ── RLS ─────────────────────────────────────────────────────────────────────
 
-ALTER TABLE produtos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE aromas   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pedidos  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE produtos     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aromas       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pedidos      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pedido_itens ENABLE ROW LEVEL SECURITY;
 
 -- Public reads for the storefront
 CREATE POLICY "produtos_public_read"  ON produtos FOR SELECT USING (ativo = TRUE);
 CREATE POLICY "aromas_public_read"    ON aromas   FOR SELECT USING (ativo = TRUE);
 
--- Anyone can submit an order (anon key is sufficient)
-CREATE POLICY "pedidos_public_insert" ON pedidos  FOR INSERT WITH CHECK (TRUE);
-
+-- Orders are created exclusively through the backend (service role), which
+-- computes prices/totals server-side — no public insert.
 -- Only authenticated users (Supabase dashboard / service role) can read/manage orders and manage catalogue
-CREATE POLICY "pedidos_auth_all"      ON pedidos  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "produtos_auth_all"     ON produtos FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "aromas_auth_all"       ON aromas   FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "pedidos_auth_all"      ON pedidos      FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "pedido_itens_auth_all" ON pedido_itens FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "produtos_auth_all"     ON produtos     FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "aromas_auth_all"       ON aromas       FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ── Grants ───────────────────────────────────────────────────────────────────
--- Anon role can read products/aromas and submit orders; management via service role
+-- Anon role can read products/aromas; everything else goes through the backend
 GRANT SELECT ON TABLE produtos TO anon;
 GRANT SELECT ON TABLE aromas   TO anon;
-GRANT INSERT ON TABLE pedidos  TO anon;
 
 -- ── Carrinho ─────────────────────────────────────────────────────────────────
 -- Cart items live per authenticated user. Access is backend-only (service
@@ -134,11 +182,11 @@ ON CONFLICT (id) DO NOTHING;
 
 -- ── Seed data ────────────────────────────────────────────────────────────────
 
-INSERT INTO produtos (nome, tamanhos, descricao, tag, ordem, estoque) VALUES
-  ('Difusor de Vidro',     ARRAY['250ml', '500ml'],       'Disponível em 250ml e 500ml. Frasco em vidro com fitas e varetas pretas.', 'Linha Premium',          1, 20),
-  ('Difusor PET',          ARRAY['250ml'],                 'Tamanho único 250ml. Praticidade em embalagem leve e resistente.',          'Tamanho único',          2, 20),
-  ('Home Spray',           ARRAY['120ml', '250ml'],        'Borrife e perfume o ambiente em segundos. Fixação prolongada.',             'Aplicação rápida',       3, 20),
-  ('Refil',                ARRAY['250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes.',       'Recarregue & economize', 4, 20);
+INSERT INTO produtos (nome, tamanhos, descricao, tag, ordem, estoque, precos) VALUES
+  ('Difusor de Vidro',     ARRAY['250ml', '500ml'],       'Disponível em 250ml e 500ml. Frasco em vidro com fitas e varetas pretas.', 'Linha Premium',          1, 20, '{"250ml": 7990, "500ml": 11990}'),
+  ('Difusor PET',          ARRAY['250ml'],                 'Tamanho único 250ml. Praticidade em embalagem leve e resistente.',          'Tamanho único',          2, 20, '{"250ml": 4990}'),
+  ('Home Spray',           ARRAY['120ml', '250ml'],        'Borrife e perfume o ambiente em segundos. Fixação prolongada.',             'Aplicação rápida',       3, 20, '{"120ml": 3990, "250ml": 5990}'),
+  ('Refil',                ARRAY['250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes.',       'Recarregue & economize', 4, 20, '{"250ml": 3490, "500ml": 5490, "1L": 8990}');
 
 INSERT INTO aromas (nome, ordem) VALUES
   ('Alecrim',           1),

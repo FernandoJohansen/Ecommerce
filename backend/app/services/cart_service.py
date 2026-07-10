@@ -8,13 +8,29 @@ from app.repositories.cart_repository import (
     insert_item,
     update_item,
 )
-from app.repositories.order_repository import insert_pedido
-from app.schemas.cart import CartItemCreate, CartItemUpdate
-from app.services.product_service import baixar_estoque, repor_estoque
+from app.schemas.cart import CartCheckoutRequest, CartItemCreate, CartItemUpdate
+from app.services.order_service import criar_pedido
+from app.services.product_service import mapa_produtos, preco_unitario
 
 
 def list_cart(user_id: str) -> list[dict]:
-    return get_items(user_id)
+    produtos = mapa_produtos()
+    itens = []
+    for item in get_items(user_id):
+        try:
+            preco = preco_unitario(produtos, item["produto_nome"], item["tamanho"], item["refil"])
+        except HTTPException:
+            # Produto saiu do catálogo ou ficou sem preço: mantém o item
+            # visível no carrinho, sem valor.
+            preco = None
+        itens.append(
+            {
+                **item,
+                "preco_unitario_centavos": preco,
+                "subtotal_centavos": preco * item["quantidade"] if preco is not None else None,
+            }
+        )
+    return itens
 
 
 def add_to_cart(user_id: str, item: CartItemCreate) -> dict:
@@ -48,45 +64,27 @@ def clear_cart(user_id: str) -> dict:
     return {"removed": clear_items(user_id)}
 
 
-def checkout_cart(user, observacoes: str | None = None) -> list[dict]:
+def checkout_cart(user, dados: CartCheckoutRequest) -> dict:
     items = get_items(user.id)
     if not items:
         raise HTTPException(status_code=400, detail="Carrinho vazio")
-    metadata = user.user_metadata or {}
-    nome_cliente = metadata.get("name") or user.email
 
-    # Reserve stock for the whole cart before creating any pedido; if one
-    # product falls short, put back what was already taken and abort.
-    por_produto: dict[str, int] = {}
-    for item in items:
-        por_produto[item["produto_nome"]] = (
-            por_produto.get(item["produto_nome"], 0) + item["quantidade"]
-        )
-    baixados: list[tuple[str, int]] = []
-    try:
-        for produto_nome, quantidade in por_produto.items():
-            baixar_estoque(produto_nome, quantidade)
-            baixados.append((produto_nome, quantidade))
-    except HTTPException:
-        for produto_nome, quantidade in baixados:
-            repor_estoque(produto_nome, quantidade)
-        raise
-
-    pedidos = []
-    for item in items:
-        pedido = insert_pedido(
+    pedido = criar_pedido(
+        itens=[
             {
                 "produto_nome": item["produto_nome"],
                 "tamanho": item["tamanho"],
                 "aroma": item["aroma"],
                 "refil": item["refil"],
                 "quantidade": item["quantidade"],
-                "nome_cliente": nome_cliente,
-                "observacoes": observacoes,
             }
-        )
-        if not pedido:
-            raise HTTPException(status_code=500, detail="Falha ao registrar pedido")
-        pedidos.append(pedido)
+            for item in items
+        ],
+        nome_cliente=dados.nome_cliente,
+        telefone=dados.telefone,
+        endereco=dados.endereco.model_dump(),
+        observacoes=dados.observacoes,
+        user_id=user.id,
+    )
     clear_items(user.id)
-    return pedidos
+    return pedido

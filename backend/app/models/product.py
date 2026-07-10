@@ -10,6 +10,7 @@ class Produto(BaseModel):
     ordem: int = 0
     ativo: bool = True
     estoque: int = 0
+    precos: dict[str, int] = {}
 
 
 class Aroma(BaseModel):

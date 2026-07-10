@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
-from app.dependencies.auth import get_staff_user
-from app.schemas.order import PedidoCreate, PedidoUpdate
+from app.dependencies.auth import get_optional_user, get_staff_user
+from app.schemas.order import PedidoCreate, PedidoResponse, PedidoUpdate
 from app.services.order_service import (
     create_pedido,
     list_pedidos,
@@ -12,9 +12,9 @@ from app.services.order_service import (
 router = APIRouter()
 
 
-@router.post("/pedidos", status_code=201)
-def post_pedido(pedido: PedidoCreate):
-    return create_pedido(pedido)
+@router.post("/pedidos", response_model=PedidoResponse, status_code=201)
+def post_pedido(pedido: PedidoCreate, user=Depends(get_optional_user)):
+    return create_pedido(pedido, user_id=user.id if user else None)
 
 
 @router.get("/pedidos")

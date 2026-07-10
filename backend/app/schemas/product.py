@@ -8,6 +8,7 @@ class ProdutoResponse(BaseModel):
     descricao: str | None = None
     tag: str | None = None
     estoque: int = 0
+    precos: dict[str, int] = {}
 
 
 class EstoqueUpdate(BaseModel):
