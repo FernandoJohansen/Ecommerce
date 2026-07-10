@@ -1,7 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import logo from "@/assets/logo.png";
 import { isAuthenticated, isStaff } from "@/lib/auth";
+import { apiFetch } from "@/lib/api";
+import { formatarPreco, menorPreco, type ProdutoApi } from "@/lib/precos";
 import hero from "@/assets/hero-diffuser.jpg";
 import pGlass from "@/assets/product-glass.jpg";
 import pPet from "@/assets/product-pet.jpg";
@@ -24,28 +27,33 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+// apiNome liga o card ao produto no catálogo (coluna "nome" no banco)
 const products = [
   {
     img: pGlass,
     nome: "Difusor de Vidro",
+    apiNome: "Difusor de Vidro",
     desc: "Disponível em 250ml e 500ml. Frasco em vidro com fitas e varetas pretas.",
     tag: "Linha Premium",
   },
   {
     img: pPet,
     nome: "Difusor PET",
+    apiNome: "Difusor PET",
     desc: "Tamanho único 250ml. Praticidade em embalagem leve e resistente.",
     tag: "Tamanho único",
   },
   {
     img: pSpray,
     nome: "Home Spray",
+    apiNome: "Home Spray",
     desc: "Borrife e perfume o ambiente em segundos. Fixação prolongada.",
     tag: "Aplicação rápida",
   },
   {
     img: pRefill,
     nome: "Refis",
+    apiNome: "Refil",
     desc: "Renove o aroma do seu difusor com nossos refis em diversos volumes.",
     tag: "Recarregue & economize",
   },
@@ -256,6 +264,13 @@ function Hero() {
 }
 
 function Produtos() {
+  const { data: catalogo = [] } = useQuery<ProdutoApi[]>({
+    queryKey: ["produtos"],
+    queryFn: () => apiFetch("/produtos"),
+  });
+  const precoInicial = (apiNome: string) =>
+    menorPreco(catalogo.find((p) => p.nome === apiNome)?.precos);
+
   return (
     <section id="produtos" className="bg-background py-28">
       <div className="mx-auto max-w-7xl px-6 md:px-12">
@@ -295,6 +310,12 @@ function Produtos() {
                   </span>
                   <h3 className="serif mt-2 text-2xl">{p.nome}</h3>
                   <p className="mt-2 flex-1 text-sm text-muted-foreground">{p.desc}</p>
+                  {precoInicial(p.apiNome) !== null && (
+                    <p className="mt-4 text-sm">
+                      <span className="text-muted-foreground">a partir de </span>
+                      {formatarPreco(precoInicial(p.apiNome)!)}
+                    </p>
+                  )}
                   <a
                     href="#atendimento"
                     className="mt-6 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-muted-foreground transition-colors group-hover:text-foreground"

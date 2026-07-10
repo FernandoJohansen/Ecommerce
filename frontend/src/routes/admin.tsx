@@ -32,22 +32,46 @@ import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 import { apiFetch } from "@/lib/api";
 import { isAdmin, isAuthenticated, isStaff, logout, type Role } from "@/lib/auth";
+import { formatarPreco } from "@/lib/precos";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Pedido = {
+type PedidoItem = {
   id: string;
   produto_nome: string;
   tamanho: string;
   aroma: string;
   refil: boolean;
   quantidade: number;
+  preco_unitario_centavos: number;
+  subtotal_centavos: number;
+};
+
+type Pedido = {
+  id: string;
   nome_cliente: string | null;
+  telefone: string | null;
+  cep: string | null;
+  rua: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
   observacoes: string | null;
+  total_centavos: number;
   status: string;
   created_at: string;
+  itens: PedidoItem[];
+};
+
+const enderecoResumo = (pedido: Pedido) => {
+  if (!pedido.rua) return null;
+  const linha1 = [pedido.rua, pedido.numero].filter(Boolean).join(", ");
+  const linha2 = [pedido.bairro, pedido.cidade, pedido.estado].filter(Boolean).join(" · ");
+  return [linha1, pedido.complemento, linha2, pedido.cep].filter(Boolean).join(" — ");
 };
 
 const STATUS = {
@@ -369,12 +393,11 @@ function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Data</TableHead>
-                      <TableHead>Produto</TableHead>
-                      <TableHead>Tamanho</TableHead>
-                      <TableHead>Aroma</TableHead>
-                      <TableHead>Refil</TableHead>
-                      <TableHead>Qtd.</TableHead>
+                      <TableHead>Itens</TableHead>
+                      <TableHead>Total</TableHead>
                       <TableHead>Cliente</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Entrega</TableHead>
                       <TableHead>Observações</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -384,12 +407,26 @@ function AdminPage() {
                     {pedidosFiltrados.map((pedido) => (
                       <TableRow key={pedido.id}>
                         <TableCell>{new Date(pedido.created_at).toLocaleString("pt-BR")}</TableCell>
-                        <TableCell>{pedido.produto_nome}</TableCell>
-                        <TableCell>{pedido.tamanho}</TableCell>
-                        <TableCell>{pedido.aroma}</TableCell>
-                        <TableCell>{pedido.refil ? "Sim" : "Não"}</TableCell>
-                        <TableCell>{pedido.quantidade}</TableCell>
+                        <TableCell>
+                          <ul className="space-y-1">
+                            {pedido.itens.map((item) => (
+                              <li key={item.id} className="whitespace-nowrap">
+                                {item.quantidade}× {item.produto_nome} {item.tamanho} · {item.aroma}
+                                {item.refil ? " · com refil" : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatarPreco(pedido.total_centavos)}
+                        </TableCell>
                         <TableCell>{pedido.nome_cliente ?? "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {pedido.telefone ?? "—"}
+                        </TableCell>
+                        <TableCell className="max-w-[280px]">
+                          {enderecoResumo(pedido) ?? "—"}
+                        </TableCell>
                         <TableCell>{pedido.observacoes ?? "—"}</TableCell>
                         <TableCell>
                           <Select
@@ -428,7 +465,8 @@ function AdminPage() {
                                 </AlertDialogTitle>
                                 <AlertDialogDescription>
                                   O pedido de {pedido.nome_cliente ?? "cliente sem nome"} (
-                                  {pedido.produto_nome}) será removido permanentemente.
+                                  {formatarPreco(pedido.total_centavos)}) será removido
+                                  permanentemente.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>

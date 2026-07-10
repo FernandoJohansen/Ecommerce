@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -15,14 +14,8 @@ import {
 } from "@/components/ui/select";
 import { apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
-
-interface Produto {
-  id: string;
-  nome: string;
-  tamanhos: string[];
-  tag: string;
-  descricao: string;
-}
+import { REFIL_PRODUTO, formatarPreco, precoUnitario, type ProdutoApi } from "@/lib/precos";
+import { salvarItemDireto } from "@/lib/checkout";
 
 interface Aroma {
   id: string;
@@ -30,7 +23,9 @@ interface Aroma {
 }
 
 export function AtendimentoForm() {
-  const { data: produtos = [], isLoading: loadingProdutos } = useQuery<Produto[]>({
+  const navigate = useNavigate();
+
+  const { data: produtos = [], isLoading: loadingProdutos } = useQuery<ProdutoApi[]>({
     queryKey: ["produtos"],
     queryFn: () => apiFetch("/produtos"),
   });
@@ -45,10 +40,6 @@ export function AtendimentoForm() {
   const [aroma, setAroma] = useState("");
   const [refil, setRefil] = useState("nao");
   const [quantidade, setQuantidade] = useState(1);
-  const [nome, setNome] = useState("");
-  const [obs, setObs] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [sucesso, setSucesso] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [logado, setLogado] = useState(false);
   const [addindoCarrinho, setAddindoCarrinho] = useState(false);
@@ -78,39 +69,38 @@ export function AtendimentoForm() {
     if (p && !p.tamanhos.includes(tamanho)) setTamanho(p.tamanhos[0]);
   };
 
-  const isRefil = effectiveProduto?.nome.toLowerCase().includes("refil");
+  const isRefil = effectiveProduto?.nome === REFIL_PRODUTO;
+  // O add-on "com refil" só existe quando o produto Refil tem preço no tamanho
+  const precoRefilAddon = produtos.find((p) => p.nome === REFIL_PRODUTO)?.precos?.[
+    effectiveTamanho
+  ];
+  const refilDisponivel = !isRefil && precoRefilAddon !== undefined;
+  const comRefil = refil === "sim" && refilDisponivel;
 
-  const enviarPedido = async () => {
-    if (!effectiveProduto) return;
-    setEnviando(true);
-    setErro(null);
+  const precoAtual = effectiveProduto
+    ? precoUnitario(produtos, effectiveProduto.nome, effectiveTamanho, comRefil)
+    : null;
+  const totalAtual = precoAtual !== null ? precoAtual * quantidade : null;
 
-    const payload = {
+  const itemAtual = () =>
+    effectiveProduto && {
       produto_nome: effectiveProduto.nome,
       tamanho: effectiveTamanho,
       aroma: effectiveAroma,
-      refil: refil === "sim" && !isRefil,
+      refil: comRefil,
       quantidade,
-      nome_cliente: nome || null,
-      observacoes: obs || null,
     };
 
-    try {
-      await apiFetch("/pedidos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      setSucesso(true);
-    } catch {
-      setErro("Não foi possível enviar o pedido. Tente novamente.");
-    } finally {
-      setEnviando(false);
-    }
+  const comprarAgora = () => {
+    const item = itemAtual();
+    if (!item) return;
+    salvarItemDireto(item);
+    navigate({ to: "/checkout" });
   };
 
   const adicionarAoCarrinho = async () => {
-    if (!effectiveProduto) return;
+    const item = itemAtual();
+    if (!item) return;
     setAddindoCarrinho(true);
     setErro(null);
     setAddedCarrinho(false);
@@ -119,13 +109,7 @@ export function AtendimentoForm() {
       await apiFetch("/carrinho", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          produto_nome: effectiveProduto.nome,
-          tamanho: effectiveTamanho,
-          aroma: effectiveAroma,
-          refil: refil === "sim" && !isRefil,
-          quantidade,
-        }),
+        body: JSON.stringify(item),
       });
       setAddedCarrinho(true);
     } catch {
@@ -182,11 +166,14 @@ export function AtendimentoForm() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {tamanhosDisponiveis.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
+              {tamanhosDisponiveis.map((t) => {
+                const preco = effectiveProduto?.precos?.[t];
+                return (
+                  <SelectItem key={t} value={t}>
+                    {preco !== undefined ? `${t} — ${formatarPreco(preco)}` : t}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -207,7 +194,7 @@ export function AtendimentoForm() {
           </Select>
         </div>
 
-        {!isRefil && (
+        {refilDisponivel && (
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               Adicionar refil ao pedido?
@@ -215,7 +202,7 @@ export function AtendimentoForm() {
             <RadioGroup value={refil} onValueChange={setRefil} className="flex gap-6 pt-1">
               <label className="flex cursor-pointer items-center gap-2">
                 <RadioGroupItem value="sim" id="refil-sim" />
-                <span>Sim</span>
+                <span>Sim (+{formatarPreco(precoRefilAddon)})</span>
               </label>
               <label className="flex cursor-pointer items-center gap-2">
                 <RadioGroupItem value="nao" id="refil-nao" />
@@ -225,77 +212,53 @@ export function AtendimentoForm() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Quantidade
-            </Label>
-            <Input
-              type="number"
-              min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, +e.target.value))}
-              className="rounded-none border-0 border-b border-foreground bg-transparent px-0"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Seu nome
-            </Label>
-            <Input
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="rounded-none border-0 border-b border-foreground bg-transparent px-0"
-            />
-          </div>
-        </div>
-
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Observações
+            Quantidade
           </Label>
-          <Textarea
-            value={obs}
-            onChange={(e) => setObs(e.target.value)}
-            rows={3}
-            className="rounded-none border border-foreground/30 bg-transparent"
+          <Input
+            type="number"
+            min={1}
+            max={99}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.min(99, Math.max(1, +e.target.value)))}
+            className="rounded-none border-0 border-b border-foreground bg-transparent px-0"
           />
         </div>
 
-        {sucesso ? (
-          <p className="py-4 text-center text-sm uppercase tracking-[0.2em] text-foreground">
-            Pedido recebido! Entraremos em contato em breve.
-          </p>
-        ) : (
-          <>
-            {erro && <p className="text-xs text-red-600">{erro}</p>}
-            <Button
-              onClick={enviarPedido}
-              disabled={enviando || addindoCarrinho}
-              className="w-full rounded-none bg-foreground py-6 text-xs uppercase tracking-[0.3em] text-background hover:bg-foreground/90 disabled:opacity-50"
-            >
-              {enviando ? "Enviando…" : "Enviar pedido"}
-            </Button>
-            {logado &&
-              (addedCarrinho ? (
-                <p className="text-center text-xs uppercase tracking-[0.2em]">
-                  Adicionado!{" "}
-                  <Link to="/carrinho" className="underline underline-offset-4">
-                    Ver carrinho
-                  </Link>
-                </p>
-              ) : (
-                <Button
-                  onClick={adicionarAoCarrinho}
-                  disabled={enviando || addindoCarrinho}
-                  variant="outline"
-                  className="w-full rounded-none border-foreground py-6 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background disabled:opacity-50"
-                >
-                  {addindoCarrinho ? "Adicionando…" : "Adicionar ao carrinho"}
-                </Button>
-              ))}
-          </>
+        {totalAtual !== null && (
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Total</span>
+            <span className="serif text-2xl">{formatarPreco(totalAtual)}</span>
+          </div>
         )}
+
+        {erro && <p className="text-xs text-red-600">{erro}</p>}
+        <Button
+          onClick={comprarAgora}
+          disabled={addindoCarrinho}
+          className="w-full rounded-none bg-foreground py-6 text-xs uppercase tracking-[0.3em] text-background hover:bg-foreground/90 disabled:opacity-50"
+        >
+          Comprar agora
+        </Button>
+        {logado &&
+          (addedCarrinho ? (
+            <p className="text-center text-xs uppercase tracking-[0.2em]">
+              Adicionado!{" "}
+              <Link to="/carrinho" className="underline underline-offset-4">
+                Ver carrinho
+              </Link>
+            </p>
+          ) : (
+            <Button
+              onClick={adicionarAoCarrinho}
+              disabled={addindoCarrinho}
+              variant="outline"
+              className="w-full rounded-none border-foreground py-6 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background disabled:opacity-50"
+            >
+              {addindoCarrinho ? "Adicionando…" : "Adicionar ao carrinho"}
+            </Button>
+          ))}
       </div>
     </div>
   );
