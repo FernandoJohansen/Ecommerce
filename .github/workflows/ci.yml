@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build (Cloudflare Workers target)
+        run: bun run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Dummy values so app.core.config passes its startup check
+      SUPABASE_URL: http://localhost
+      SUPABASE_KEY: ci-dummy-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: |
+          uv venv --python 3.14
+          uv pip install -r requiriments.txt
+
+      - name: Compile check
+        run: uv run python -m compileall -q app
+
+      - name: Import smoke test
+        run: uv run python -c "import app.main"
+
+      - name: Docker build
+        run: docker build -t viapianastore-backend .

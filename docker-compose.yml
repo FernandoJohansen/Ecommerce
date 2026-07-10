@@ -1,0 +1,33 @@
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: oven/bun:1
+    working_dir: /app
+    command: sh -c "bun install --frozen-lockfile && bun dev"
+    environment:
+      # Vite proxies /api/* here (see frontend/vite.config.ts)
+      API_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -1,0 +1,48 @@
+PENDÊNCIAS — Sprint Roadmap (atualizado em 10/07/2026)
+========================================================
+
+Sprint 1 — Infrastructure & Setup: CONCLUÍDO ✔
+(Docker Compose, CI/CD, .env hygiene e README adicionados em 10/07/2026)
+
+STRAGGLERS DE SPRINTS ANTERIORES
+--------------------------------
+
+Sprint 3 — Product System
+  [ ] Páginas de detalhe de produto (rota individual por produto)
+  [ ] Upload de imagens de produto (hoje só existe o bucket "avatars";
+      criar bucket de imagens de produto + endpoint de upload no admin)
+
+Sprint 4 — Cart & CMS: CONCLUÍDO ✔
+  [x] Gestão de estoque (coluna "estoque" em produtos, função SQL
+      ajustar_estoque, decremento ao criar pedido — POST /pedidos e
+      checkout do carrinho —, endpoint PATCH /produtos/{id}/estoque
+      e aba "Estoque" no admin) — 10/07/2026
+      ATENÇÃO: rodar no SQL Editor do Supabase (banco já provisionado):
+        ALTER TABLE produtos ADD COLUMN estoque INTEGER NOT NULL
+          DEFAULT 0 CHECK (estoque >= 0);
+        + o bloco "Estoque" (função ajustar_estoque) do schema.sql
+
+PRÓXIMO TRABALHO
+----------------
+
+Sprint 5 — Checkout System (sprint atual pelo calendário)
+  [ ] Preços nos produtos (não existe coluna de preço em lugar nenhum)
+  [ ] Itens de pedido com valores + cálculo de totais
+  [ ] Formulário de endereço no checkout
+  [ ] UI de checkout (hoje o fluxo termina no carrinho/WhatsApp)
+  [ ] Validações (CPF/CNPJ virá no Sprint 8, mas dados básicos aqui)
+
+Sprint 6 — PIX Integration
+  [ ] Integração Sicredi PIX (hoje /api/pagamento/pix só retorna chave
+      estática com instrução de enviar comprovante pelo WhatsApp)
+  [ ] Geração de QR code
+  [ ] Webhooks / polling de confirmação de pagamento
+  [ ] Tabela "payments" no banco
+  [ ] Atualização automática de status do pedido após pagamento
+
+NOTAS
+-----
+- Deploy do frontend: workflow "Deploy Frontend" é manual; requer o
+  secret CLOUDFLARE_API_TOKEN no GitHub. Depois do primeiro deploy
+  validado, trocar o trigger para push na main.
+- Preços/totais são pré-requisito do PIX (Sprint 6) — priorizar.

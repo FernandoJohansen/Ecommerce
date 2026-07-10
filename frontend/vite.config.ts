@@ -41,7 +41,7 @@ export default async ({ command, mode }: { command: string; mode: string }) => {
       host: "::",
       port: 8080,
       proxy: {
-        "/api": "http://localhost:8000",
+        "/api": process.env.API_PROXY_TARGET ?? "http://localhost:8000",
       },
     },
   };
