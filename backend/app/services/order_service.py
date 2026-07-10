@@ -7,11 +7,14 @@ from app.repositories.order_repository import (
     update_pedido,
 )
 from app.schemas.order import PedidoCreate, PedidoUpdate
+from app.services.product_service import baixar_estoque, repor_estoque
 
 
 def create_pedido(pedido: PedidoCreate) -> dict:
+    baixar_estoque(pedido.produto_nome, pedido.quantidade)
     result = insert_pedido(pedido.model_dump())
     if not result:
+        repor_estoque(pedido.produto_nome, pedido.quantidade)
         raise HTTPException(status_code=500, detail="Falha ao salvar pedido")
     return result
 

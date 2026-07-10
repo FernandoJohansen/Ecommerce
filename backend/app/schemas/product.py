@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProdutoResponse(BaseModel):
@@ -7,6 +7,11 @@ class ProdutoResponse(BaseModel):
     tamanhos: list[str]
     descricao: str | None = None
     tag: str | None = None
+    estoque: int = 0
+
+
+class EstoqueUpdate(BaseModel):
+    estoque: int = Field(ge=0)
 
 
 class AromaResponse(BaseModel):

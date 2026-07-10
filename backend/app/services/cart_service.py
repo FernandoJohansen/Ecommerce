@@ -10,6 +10,7 @@ from app.repositories.cart_repository import (
 )
 from app.repositories.order_repository import insert_pedido
 from app.schemas.cart import CartItemCreate, CartItemUpdate
+from app.services.product_service import baixar_estoque, repor_estoque
 
 
 def list_cart(user_id: str) -> list[dict]:
@@ -53,6 +54,24 @@ def checkout_cart(user, observacoes: str | None = None) -> list[dict]:
         raise HTTPException(status_code=400, detail="Carrinho vazio")
     metadata = user.user_metadata or {}
     nome_cliente = metadata.get("name") or user.email
+
+    # Reserve stock for the whole cart before creating any pedido; if one
+    # product falls short, put back what was already taken and abort.
+    por_produto: dict[str, int] = {}
+    for item in items:
+        por_produto[item["produto_nome"]] = (
+            por_produto.get(item["produto_nome"], 0) + item["quantidade"]
+        )
+    baixados: list[tuple[str, int]] = []
+    try:
+        for produto_nome, quantidade in por_produto.items():
+            baixar_estoque(produto_nome, quantidade)
+            baixados.append((produto_nome, quantidade))
+    except HTTPException:
+        for produto_nome, quantidade in baixados:
+            repor_estoque(produto_nome, quantidade)
+        raise
+
     pedidos = []
     for item in items:
         pedido = insert_pedido(

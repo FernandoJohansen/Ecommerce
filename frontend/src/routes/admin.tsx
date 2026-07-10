@@ -28,9 +28,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 import { apiFetch } from "@/lib/api";
-import { isAdmin, isAuthenticated, logout, type Role } from "@/lib/auth";
+import { isAdmin, isAuthenticated, isStaff, logout, type Role } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -68,6 +69,14 @@ type Usuario = {
   created_at: string | null;
 };
 
+type Produto = {
+  id: string;
+  nome: string;
+  tamanhos: string[];
+  tag: string | null;
+  estoque: number;
+};
+
 const ROLES: Record<Role, string> = {
   customer: "Cliente",
   staff: "Equipe",
@@ -79,8 +88,9 @@ function AdminPage() {
   const queryClient = useQueryClient();
   const [checked, setChecked] = useState(false);
   const [filtro, setFiltro] = useState<"todos" | StatusKey>("todos");
-  const [aba, setAba] = useState<"pedidos" | "usuarios">("pedidos");
+  const [aba, setAba] = useState<"pedidos" | "estoque" | "usuarios">("pedidos");
   const admin = checked && isAdmin();
+  const staff = checked && isStaff();
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -123,6 +133,26 @@ function AdminPage() {
     queryKey: ["usuarios"],
     queryFn: () => apiFetch("/admin/usuarios"),
     enabled: admin && aba === "usuarios",
+  });
+
+  const {
+    data: produtos = [],
+    isLoading: carregandoProdutos,
+    error: erroProdutos,
+  } = useQuery<Produto[]>({
+    queryKey: ["produtos"],
+    queryFn: () => apiFetch("/produtos"),
+    enabled: staff && aba === "estoque",
+  });
+
+  const salvarEstoque = useMutation({
+    mutationFn: ({ id, estoque }: { id: string; estoque: number }) =>
+      apiFetch(`/produtos/${id}/estoque`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estoque }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["produtos"] }),
   });
 
   const alterarRole = useMutation({
@@ -185,9 +215,12 @@ function AdminPage() {
           </div>
         </div>
 
-        {admin && (
+        {staff && (
           <div className="mb-8 flex gap-2">
-            {(["pedidos", "usuarios"] as const).map((tab) => (
+            {(admin
+              ? (["pedidos", "estoque", "usuarios"] as const)
+              : (["pedidos", "estoque"] as const)
+            ).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setAba(tab)}
@@ -197,7 +230,7 @@ function AdminPage() {
                     : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
                 }`}
               >
-                {tab === "pedidos" ? "Pedidos" : "Usuários"}
+                {tab === "pedidos" ? "Pedidos" : tab === "estoque" ? "Estoque" : "Usuários"}
               </button>
             ))}
           </div>
@@ -254,6 +287,44 @@ function AdminPage() {
                           </Select>
                         </TableCell>
                       </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </>
+        )}
+
+        {aba === "estoque" && staff && (
+          <>
+            {carregandoProdutos && (
+              <p className="text-sm text-muted-foreground">Carregando produtos…</p>
+            )}
+
+            {erroProdutos != null && (
+              <p className="text-sm text-destructive">Não foi possível carregar os produtos.</p>
+            )}
+
+            {produtos.length > 0 && (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Tag</TableHead>
+                      <TableHead>Tamanhos</TableHead>
+                      <TableHead>Estoque</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {produtos.map((produto) => (
+                      <EstoqueRow
+                        key={produto.id}
+                        produto={produto}
+                        saving={salvarEstoque.isPending}
+                        onSave={(estoque) => salvarEstoque.mutate({ id: produto.id, estoque })}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -384,5 +455,58 @@ function AdminPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function EstoqueRow({
+  produto,
+  saving,
+  onSave,
+}: {
+  produto: Produto;
+  saving: boolean;
+  onSave: (estoque: number) => void;
+}) {
+  const [valor, setValor] = useState(String(produto.estoque));
+
+  useEffect(() => {
+    setValor(String(produto.estoque));
+  }, [produto.estoque]);
+
+  const parsed = Number.parseInt(valor, 10);
+  const valido = Number.isInteger(parsed) && parsed >= 0;
+  const alterado = valido && parsed !== produto.estoque;
+
+  return (
+    <TableRow>
+      <TableCell>{produto.nome}</TableCell>
+      <TableCell>{produto.tag ?? "—"}</TableCell>
+      <TableCell>{produto.tamanhos.join(", ")}</TableCell>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <Input
+            type="number"
+            min={0}
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className="w-24 rounded-none"
+          />
+          {produto.estoque === 0 && (
+            <span className="text-xs uppercase tracking-[0.1em] text-destructive">Esgotado</span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!alterado || saving}
+          onClick={() => onSave(parsed)}
+          className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
+        >
+          Salvar
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }

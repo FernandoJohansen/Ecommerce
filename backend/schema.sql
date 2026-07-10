@@ -10,8 +10,12 @@ CREATE TABLE produtos (
   tag         TEXT,
   ordem       INTEGER     DEFAULT 0,
   ativo       BOOLEAN     DEFAULT TRUE,
+  estoque     INTEGER     NOT NULL DEFAULT 0 CHECK (estoque >= 0),
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration for databases created before the estoque column existed:
+--   ALTER TABLE produtos ADD COLUMN estoque INTEGER NOT NULL DEFAULT 0 CHECK (estoque >= 0);
 
 CREATE TABLE aromas (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -89,6 +93,37 @@ CREATE TABLE user_roles (
 
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 
+-- ── Estoque ──────────────────────────────────────────────────────────────────
+-- Atomic stock adjustment. Called by the backend (service role) with a
+-- negative delta when an order is created, or a positive delta to restock /
+-- roll back. Fails instead of letting the stock go negative.
+
+CREATE OR REPLACE FUNCTION ajustar_estoque(p_nome TEXT, p_delta INTEGER)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  novo_estoque INTEGER;
+BEGIN
+  UPDATE produtos
+  SET estoque = estoque + p_delta
+  WHERE nome = p_nome AND estoque + p_delta >= 0
+  RETURNING estoque INTO novo_estoque;
+
+  IF novo_estoque IS NULL THEN
+    IF EXISTS (SELECT 1 FROM produtos WHERE nome = p_nome) THEN
+      RAISE EXCEPTION 'estoque_insuficiente';
+    END IF;
+    RAISE EXCEPTION 'produto_nao_encontrado';
+  END IF;
+
+  RETURN novo_estoque;
+END;
+$$;
+
+-- Stock is managed exclusively through the backend's service role.
+REVOKE ALL ON FUNCTION ajustar_estoque(TEXT, INTEGER) FROM PUBLIC, anon, authenticated;
+
 -- ── Storage: avatars ─────────────────────────────────────────────────────────
 -- Public-read bucket for profile pictures; uploads go through the backend
 -- (service role), so no storage policies are needed.
@@ -99,11 +134,11 @@ ON CONFLICT (id) DO NOTHING;
 
 -- ── Seed data ────────────────────────────────────────────────────────────────
 
-INSERT INTO produtos (nome, tamanhos, descricao, tag, ordem) VALUES
-  ('Difusor de Vidro',     ARRAY['250ml', '500ml'],       'Disponível em 250ml e 500ml. Frasco em vidro com fitas e varetas pretas.', 'Linha Premium',          1),
-  ('Difusor PET',          ARRAY['250ml'],                 'Tamanho único 250ml. Praticidade em embalagem leve e resistente.',          'Tamanho único',          2),
-  ('Home Spray',           ARRAY['120ml', '250ml'],        'Borrife e perfume o ambiente em segundos. Fixação prolongada.',             'Aplicação rápida',       3),
-  ('Refil',                ARRAY['250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes.',       'Recarregue & economize', 4);
+INSERT INTO produtos (nome, tamanhos, descricao, tag, ordem, estoque) VALUES
+  ('Difusor de Vidro',     ARRAY['250ml', '500ml'],       'Disponível em 250ml e 500ml. Frasco em vidro com fitas e varetas pretas.', 'Linha Premium',          1, 20),
+  ('Difusor PET',          ARRAY['250ml'],                 'Tamanho único 250ml. Praticidade em embalagem leve e resistente.',          'Tamanho único',          2, 20),
+  ('Home Spray',           ARRAY['120ml', '250ml'],        'Borrife e perfume o ambiente em segundos. Fixação prolongada.',             'Aplicação rápida',       3, 20),
+  ('Refil',                ARRAY['250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes.',       'Recarregue & economize', 4, 20);
 
 INSERT INTO aromas (nome, ordem) VALUES
   ('Alecrim',           1),

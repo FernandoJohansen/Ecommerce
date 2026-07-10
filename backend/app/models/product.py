@@ -9,6 +9,7 @@ class Produto(BaseModel):
     tag: str | None = None
     ordem: int = 0
     ativo: bool = True
+    estoque: int = 0
 
 
 class Aroma(BaseModel):
