@@ -198,16 +198,23 @@ INSERT INTO produtos (nome, tamanhos, descricao, tag, ordem, estoque, precos) VA
   ('Difusor de Vidro',     ARRAY['100ml', '250ml'],                'Disponível em 100ml e 250ml. Frasco em vidro com fitas e varetas pretas.', 'Linha Premium',          1, 20, '{"100ml": 6500, "250ml": 14990}'),
   ('Difusor PET',          ARRAY['250ml'],                          'Tamanho único 250ml. Praticidade em embalagem leve e resistente.',          'Tamanho único',          2, 20, '{"250ml": 6990}'),
   ('Home Spray',           ARRAY['100ml', '250ml', '500ml', '1L'],  'Borrife e perfume o ambiente em segundos. Fixação prolongada.',             'Aplicação rápida',       3, 20, '{"100ml": 4500, "250ml": 6990, "500ml": 9990, "1L": 17000}'),
-  ('Refil',                ARRAY['100ml', '250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes.',       'Recarregue & economize', 4, 20, '{"100ml": 4500, "250ml": 6500, "500ml": 13000, "1L": 20000}');
+  ('Refil',                ARRAY['100ml', '250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes. Acompanha kit de varetas de madeira.', 'Recarregue & economize', 4, 20, '{"100ml": 4500, "250ml": 6500, "500ml": 13000, "1L": 20000}'),
+  ('Kit Lavabo',           ARRAY['100ml', '250ml'],                 'Difusor e sabonete líquido em vidro para o lavabo. Disponível em 100ml e 250ml.',                          'Para o lavabo',          5, 20, '{"100ml": 9500, "250ml": 22000}'),
+  ('Refil de Sabonete Líquido', ARRAY['100ml', '250ml', '500ml', '1L'], 'Refil de sabonete líquido para o seu kit lavabo, em diversos volumes.',                                'Recarregue & economize', 6, 20, '{"100ml": 1990, "250ml": 4500, "500ml": 6500, "1L": 13000}'),
+  ('CarSpray',             ARRAY['60ml'],                           'Spray de 60ml para perfumar o carro. Aromas: Alecrim, Chá Branco, Cereja e Avelã, Tenuê e Vanilla.',       'Para o carro',           7, 20, '{"60ml": 2000}'),
+  ('Difusor de Carro',     ARRAY['Único'],                          'Difusor compacto para o retrovisor. Aromas: Alecrim, Chá Branco, Cereja e Avelã, Tenuê e Vanilla.',        'Para o carro',           8, 20, '{"Único": 2000}'),
+  ('Varetas',              ARRAY['Kit com 5'],                      'Kit com 5 varetas de reposição para difusores.',                                                           'Reposição',              9, 20, '{"Kit com 5": 800}');
 
+-- Aromas oficiais da Tabela de Preços (julho/2026)
 INSERT INTO aromas (nome, ordem) VALUES
-  ('Alecrim',           1),
-  ('Lavanda',           2),
-  ('Capim-limão',       3),
-  ('Madeiras Nobres',   4),
-  ('Flor de Laranjeira',5),
-  ('Baunilha & Âmbar',  6),
-  ('Bambu',             7),
-  ('Algodão Egípcio',   8),
-  ('Frutas Vermelhas',  9),
-  ('Tabaco & Couro',   10);
+  ('Alecrim',                1),
+  ('Baby',                   2),
+  ('Bamboo',                 3),
+  ('Capim-Limão',            4),
+  ('Cereja e Avelã',         5),
+  ('Chá Branco',             6),
+  ('Chá Branco com Vanilla', 7),
+  ('Lavanda',                8),
+  ('Tenuê',                  9),
+  ('Tenuê com Chá Branco',  10),
+  ('Vanilla',               11);

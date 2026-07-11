@@ -21,7 +21,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Difusores de vidro, difusores PET, home sprays e refis. Aromas exclusivos para perfumar seu ambiente. Loja física em Ponta Grossa-PR.",
+          "Difusores de vidro e PET, home sprays, kits lavabo, aromatizadores para carro e refis. Aromas exclusivos para perfumar seu ambiente. Loja física em Ponta Grossa-PR.",
       },
     ],
   }),
@@ -282,8 +282,9 @@ function Produtos() {
             <h2 className="serif mt-3 text-5xl md:text-6xl">Linha completa de aromas</h2>
           </div>
           <p className="max-w-md text-muted-foreground">
-            Quatro categorias pensadas para diferentes ambientes e ocasiões. Escolha o formato e
-            descubra todos os aromas disponíveis no atendimento.
+            Os destaques da coleção, pensados para diferentes ambientes e ocasiões. No atendimento
+            você encontra a linha completa: kits lavabo, sprays e difusores para carro, refis e
+            varetas.
           </p>
         </Reveal>
 
