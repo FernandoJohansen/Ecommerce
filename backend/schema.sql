@@ -86,6 +86,18 @@ CREATE INDEX pedido_itens_pedido_idx ON pedido_itens (pedido_id);
 --   DROP POLICY "pedidos_public_insert" ON pedidos;
 --   REVOKE INSERT ON TABLE pedidos FROM anon;
 
+-- Migration for databases seeded before the July/2026 price table (official
+-- "Tabela de Preços" sizes + prices):
+--   UPDATE produtos SET tamanhos = ARRAY['100ml','250ml'],
+--     descricao = 'Disponível em 100ml e 250ml. Frasco em vidro com fitas e varetas pretas.',
+--     precos = '{"100ml": 6500, "250ml": 14990}'                             WHERE nome = 'Difusor de Vidro';
+--   UPDATE produtos SET tamanhos = ARRAY['250ml'],
+--     precos = '{"250ml": 6990}'                                             WHERE nome = 'Difusor PET';
+--   UPDATE produtos SET tamanhos = ARRAY['100ml','250ml','500ml','1L'],
+--     precos = '{"100ml": 4500, "250ml": 6990, "500ml": 9990, "1L": 17000}'  WHERE nome = 'Home Spray';
+--   UPDATE produtos SET tamanhos = ARRAY['100ml','250ml','500ml','1L'],
+--     precos = '{"100ml": 4500, "250ml": 6500, "500ml": 13000, "1L": 20000}' WHERE nome = 'Refil';
+
 -- ── RLS ─────────────────────────────────────────────────────────────────────
 
 ALTER TABLE produtos     ENABLE ROW LEVEL SECURITY;
@@ -183,10 +195,10 @@ ON CONFLICT (id) DO NOTHING;
 -- ── Seed data ────────────────────────────────────────────────────────────────
 
 INSERT INTO produtos (nome, tamanhos, descricao, tag, ordem, estoque, precos) VALUES
-  ('Difusor de Vidro',     ARRAY['250ml', '500ml'],       'Disponível em 250ml e 500ml. Frasco em vidro com fitas e varetas pretas.', 'Linha Premium',          1, 20, '{"250ml": 7990, "500ml": 11990}'),
-  ('Difusor PET',          ARRAY['250ml'],                 'Tamanho único 250ml. Praticidade em embalagem leve e resistente.',          'Tamanho único',          2, 20, '{"250ml": 4990}'),
-  ('Home Spray',           ARRAY['120ml', '250ml'],        'Borrife e perfume o ambiente em segundos. Fixação prolongada.',             'Aplicação rápida',       3, 20, '{"120ml": 3990, "250ml": 5990}'),
-  ('Refil',                ARRAY['250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes.',       'Recarregue & economize', 4, 20, '{"250ml": 3490, "500ml": 5490, "1L": 8990}');
+  ('Difusor de Vidro',     ARRAY['100ml', '250ml'],                'Disponível em 100ml e 250ml. Frasco em vidro com fitas e varetas pretas.', 'Linha Premium',          1, 20, '{"100ml": 6500, "250ml": 14990}'),
+  ('Difusor PET',          ARRAY['250ml'],                          'Tamanho único 250ml. Praticidade em embalagem leve e resistente.',          'Tamanho único',          2, 20, '{"250ml": 6990}'),
+  ('Home Spray',           ARRAY['100ml', '250ml', '500ml', '1L'],  'Borrife e perfume o ambiente em segundos. Fixação prolongada.',             'Aplicação rápida',       3, 20, '{"100ml": 4500, "250ml": 6990, "500ml": 9990, "1L": 17000}'),
+  ('Refil',                ARRAY['100ml', '250ml', '500ml', '1L'],  'Renove o aroma do seu difusor com nossos refis em diversos volumes.',       'Recarregue & economize', 4, 20, '{"100ml": 4500, "250ml": 6500, "500ml": 13000, "1L": 20000}');
 
 INSERT INTO aromas (nome, ordem) VALUES
   ('Alecrim',           1),

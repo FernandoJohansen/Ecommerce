@@ -33,7 +33,7 @@ const products = [
     img: pGlass,
     nome: "Difusor de Vidro",
     apiNome: "Difusor de Vidro",
-    desc: "Disponível em 250ml e 500ml. Frasco em vidro com fitas e varetas pretas.",
+    desc: "Disponível em 100ml e 250ml. Frasco em vidro com fitas e varetas pretas.",
     tag: "Linha Premium",
   },
   {
