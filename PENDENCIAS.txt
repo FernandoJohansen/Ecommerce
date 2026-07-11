@@ -26,12 +26,13 @@ Sprint 5 — Checkout System: CONCLUÍDO ✔ — 10/07/2026
       direta da vitrine ("Comprar agora", inclusive convidado)
   [x] Validações básicas (nome, telefone com DDD, CEP 8 dígitos, UF,
       quantidade 1–99, aroma/tamanho validados contra o catálogo)
-  ATENÇÃO: rodar no SQL Editor do Supabase (banco já provisionado) o
-  bloco "Migration for databases created before Sprint 5" comentado no
-  backend/schema.sql (precos + colunas novas de pedidos + pedido_itens
-  + drop das colunas antigas + drop da policy pedidos_public_insert).
-  Depois, conferir/ajustar os preços reais com a Carolina — os valores
-  do seed são provisórios.
+  [x] Migração aplicada no banco de produção em 11/07/2026
+      (backend/migrations/2026-07-11_sprint4-5_estoque_precos_pedido_itens.sql:
+      estoque + ajustar_estoque, precos, pedidos reestruturado, pedido_itens)
+  [x] Preços e tamanhos oficiais da Tabela de Preços da Carolina
+      (imagens de 10/07/2026) aplicados no seed e no banco de produção
+  ATENÇÃO: estoque inicial foi definido como 20 para todos os produtos;
+  ajustar o estoque real pela aba "Estoque" do admin.
 
 PRÓXIMO TRABALHO
 ----------------
