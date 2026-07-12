@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException
 
 from app.repositories.cart_repository import (
@@ -11,6 +13,8 @@ from app.repositories.cart_repository import (
 from app.schemas.cart import CartCheckoutRequest, CartItemCreate, CartItemUpdate
 from app.services.order_service import criar_pedido
 from app.services.product_service import mapa_produtos, preco_unitario
+
+logger = logging.getLogger(__name__)
 
 
 def list_cart(user_id: str) -> list[dict]:
@@ -38,7 +42,9 @@ def add_to_cart(user_id: str, item: CartItemCreate) -> dict:
     existing = find_matching_item(user_id, data)
     if existing:
         return update_item(
-            existing["id"], user_id, {"quantidade": existing["quantidade"] + item.quantidade}
+            existing["id"],
+            user_id,
+            {"quantidade": min(existing["quantidade"] + item.quantidade, 99)},
         )
     result = insert_item({**data, "user_id": user_id})
     if not result:
@@ -86,5 +92,15 @@ def checkout_cart(user, dados: CartCheckoutRequest) -> dict:
         observacoes=dados.observacoes,
         user_id=user.id,
     )
-    clear_items(user.id)
+    try:
+        clear_items(user.id)
+    except Exception:
+        # O pedido já foi criado e o estoque baixado; falhar aqui devolveria
+        # erro ao cliente e induziria um pedido duplicado no retry.
+        logger.warning(
+            "Pedido %s criado, mas falhou ao limpar o carrinho do usuário %s",
+            pedido["id"],
+            user.id,
+            exc_info=True,
+        )
     return pedido

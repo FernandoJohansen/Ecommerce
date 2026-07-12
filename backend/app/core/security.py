@@ -21,14 +21,11 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_sche
 def verify_token_optional(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme_optional),
 ):
-    """Resolve o usuário quando houver token válido; caso contrário, None.
+    """Resolve o usuário quando houver token; sem token, None (convidado).
 
-    Para endpoints públicos (ex.: pedido de convidado) que aproveitam a
-    identidade quando ela existe."""
+    Um token presente mas inválido/expirado é erro (401), não convidado:
+    devolver None aqui criaria o pedido sem user_id para um cliente logado,
+    sem nunca disparar a re-autenticação no frontend."""
     if credentials is None:
         return None
-    try:
-        response = supabase.auth.get_user(credentials.credentials)
-    except AuthError:
-        return None
-    return response.user if response else None
+    return verify_token(credentials)

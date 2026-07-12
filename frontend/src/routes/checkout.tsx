@@ -13,12 +13,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import logo from "@/assets/logo.png";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { formatarPreco, precoUnitario, type ProdutoApi } from "@/lib/precos";
 import { lerItemDireto, limparItemDireto, type ItemDireto } from "@/lib/checkout";
 
 export const Route = createFileRoute("/checkout")({
+  validateSearch: (search: Record<string, unknown>): { direto?: true } => ({
+    // "Comprar agora" chega com ?direto=true; sem isso o checkout fecha o
+    // carrinho, mesmo que exista um item direto abandonado no sessionStorage
+    direto: search.direto === true || search.direto === "true" ? true : undefined,
+  }),
   component: CheckoutPage,
 });
 
@@ -84,6 +89,7 @@ const formatarTelefone = (v: string) => {
 function CheckoutPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { direto } = Route.useSearch();
 
   // Resolvidos no cliente (sessionStorage/localStorage não existem no SSR)
   const [pronto, setPronto] = useState(false);
@@ -91,7 +97,7 @@ function CheckoutPage() {
   const [itemDireto, setItemDireto] = useState<ItemDireto | null>(null);
 
   useEffect(() => {
-    const item = lerItemDireto();
+    const item = direto ? lerItemDireto() : null;
     const autenticado = isAuthenticated();
     // Sem item direto, o checkout fecha o carrinho — e carrinho exige login
     if (!item && !autenticado) {
@@ -101,11 +107,11 @@ function CheckoutPage() {
     setItemDireto(item);
     setLogado(autenticado);
     setPronto(true);
-  }, [navigate]);
+  }, [navigate, direto]);
 
   const modoDireto = itemDireto !== null;
 
-  const { data: catalogo = [] } = useQuery<ProdutoApi[]>({
+  const { data: catalogo = [], isLoading: carregandoCatalogo } = useQuery<ProdutoApi[]>({
     queryKey: ["produtos"],
     queryFn: () => apiFetch("/produtos"),
     enabled: pronto && modoDireto,
@@ -129,6 +135,10 @@ function CheckoutPage() {
     : itensCarrinho;
 
   const total = itens.reduce((soma, item) => soma + (item.subtotal_centavos ?? 0), 0);
+  // Enquanto o catálogo carrega (modo direto) ou quando um item perdeu o
+  // preço, o total estaria errado — não deixa confirmar
+  const carregandoPrecos = modoDireto && carregandoCatalogo;
+  const temItemSemPreco = !carregandoPrecos && itens.some((i) => i.subtotal_centavos === null);
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -367,20 +377,31 @@ function CheckoutPage() {
                     <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Total
                     </span>
-                    <span className="serif text-2xl">{formatarPreco(total)}</span>
+                    <span className="serif text-2xl">
+                      {carregandoPrecos || temItemSemPreco ? "—" : formatarPreco(total)}
+                    </span>
                   </div>
+
+                  {temItemSemPreco && (
+                    <p className="mt-4 text-sm text-destructive">
+                      Um dos itens está sem preço disponível.{" "}
+                      {modoDireto
+                        ? "Volte à loja e refaça a seleção."
+                        : "Remova-o do carrinho para continuar."}
+                    </p>
+                  )}
 
                   {enviar.isError && (
                     <p className="mt-4 text-sm text-destructive">
-                      {String(enviar.error).includes("409")
-                        ? "Estoque insuficiente para um dos itens."
+                      {enviar.error instanceof ApiError && enviar.error.detail
+                        ? enviar.error.detail
                         : "Não foi possível confirmar o pedido. Confira os dados e tente novamente."}
                     </p>
                   )}
 
                   <Button
                     onClick={submeter}
-                    disabled={enviar.isPending}
+                    disabled={enviar.isPending || carregandoPrecos || temItemSemPreco}
                     className="mt-6 w-full rounded-none bg-foreground py-6 text-xs uppercase tracking-[0.3em] text-background hover:bg-foreground/90 disabled:opacity-50"
                   >
                     {enviar.isPending ? "Confirmando…" : "Confirmar pedido"}

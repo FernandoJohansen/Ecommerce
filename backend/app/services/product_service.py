@@ -41,7 +41,13 @@ def preco_unitario(
         raise HTTPException(
             status_code=422, detail=f"Produto sem preço definido no tamanho {tamanho}: {produto_nome}"
         )
-    if refil and produto_nome != REFIL_PRODUTO:
+    if refil:
+        # O add-on é um refil de difusor; não faz sentido sobre produtos que
+        # já são refis (inclusive o de sabonete líquido).
+        if "refil" in produto_nome.lower():
+            raise HTTPException(
+                status_code=422, detail=f"Refil não disponível para {produto_nome}"
+            )
         preco_refil = (produtos.get(REFIL_PRODUTO, {}).get("precos") or {}).get(tamanho)
         if preco_refil is None:
             raise HTTPException(

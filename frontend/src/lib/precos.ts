@@ -32,7 +32,9 @@ export function precoUnitario(
 ): number | null {
   const base = produtos.find((p) => p.nome === produtoNome)?.precos?.[tamanho];
   if (base === undefined) return null;
-  if (refil && produtoNome !== REFIL_PRODUTO) {
+  if (refil) {
+    // Produtos que já são refis não aceitam o add-on
+    if (produtoNome.toLowerCase().includes("refil")) return null;
     const precoRefil = produtos.find((p) => p.nome === REFIL_PRODUTO)?.precos?.[tamanho];
     if (precoRefil === undefined) return null;
     return base + precoRefil;

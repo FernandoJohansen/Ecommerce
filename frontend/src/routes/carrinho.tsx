@@ -66,6 +66,8 @@ function CarrinhoPage() {
 
   const totalItens = itens.reduce((soma, item) => soma + item.quantidade, 0);
   const totalCentavos = itens.reduce((soma, item) => soma + (item.subtotal_centavos ?? 0), 0);
+  // Com um item sem preço o total estaria errado — e o checkout vai bloquear
+  const temItemSemPreco = itens.some((item) => item.subtotal_centavos === null);
 
   return (
     <div className="min-h-screen bg-background px-4 py-10">
@@ -158,7 +160,7 @@ function CarrinhoPage() {
                       <span className="w-8 text-center text-sm">{item.quantidade}</span>
                       <button
                         aria-label="Aumentar quantidade"
-                        disabled={alterarQuantidade.isPending}
+                        disabled={item.quantidade >= 99 || alterarQuantidade.isPending}
                         onClick={() =>
                           alterarQuantidade.mutate({
                             id: item.id,
@@ -186,8 +188,16 @@ function CarrinhoPage() {
                   <span className="uppercase tracking-[0.2em] text-muted-foreground">
                     Total ({totalItens} {totalItens === 1 ? "item" : "itens"})
                   </span>
-                  <span className="serif text-2xl">{formatarPreco(totalCentavos)}</span>
+                  <span className="serif text-2xl">
+                    {temItemSemPreco ? "—" : formatarPreco(totalCentavos)}
+                  </span>
                 </div>
+
+                {temItemSemPreco && (
+                  <p className="text-sm text-destructive">
+                    Um dos itens está sem preço disponível. Remova-o para finalizar o pedido.
+                  </p>
+                )}
 
                 <Button
                   asChild

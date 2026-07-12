@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { REFIL_PRODUTO, formatarPreco, precoUnitario, type ProdutoApi } from "@/lib/precos";
 import { salvarItemDireto } from "@/lib/checkout";
@@ -69,7 +69,7 @@ export function AtendimentoForm() {
     if (p && !p.tamanhos.includes(tamanho)) setTamanho(p.tamanhos[0]);
   };
 
-  const isRefil = effectiveProduto?.nome === REFIL_PRODUTO;
+  const isRefil = effectiveProduto?.nome.toLowerCase().includes("refil") ?? false;
   // O add-on "com refil" só existe quando o produto Refil tem preço no tamanho
   const precoRefilAddon = produtos.find((p) => p.nome === REFIL_PRODUTO)?.precos?.[
     effectiveTamanho
@@ -81,6 +81,10 @@ export function AtendimentoForm() {
     ? precoUnitario(produtos, effectiveProduto.nome, effectiveTamanho, comRefil)
     : null;
   const totalAtual = precoAtual !== null ? precoAtual * quantidade : null;
+
+  // Sem aroma (lista vazia/erro) ou sem preço no tamanho, o pedido só falharia
+  // no servidor — não deixa começar
+  const podeComprar = Boolean(effectiveProduto && effectiveAroma && precoAtual !== null);
 
   const itemAtual = () =>
     effectiveProduto && {
@@ -95,7 +99,7 @@ export function AtendimentoForm() {
     const item = itemAtual();
     if (!item) return;
     salvarItemDireto(item);
-    navigate({ to: "/checkout" });
+    navigate({ to: "/checkout", search: { direto: true } });
   };
 
   const adicionarAoCarrinho = async () => {
@@ -112,8 +116,12 @@ export function AtendimentoForm() {
         body: JSON.stringify(item),
       });
       setAddedCarrinho(true);
-    } catch {
-      setErro("Não foi possível adicionar ao carrinho. Tente novamente.");
+    } catch (e) {
+      setErro(
+        e instanceof ApiError && e.detail
+          ? e.detail
+          : "Não foi possível adicionar ao carrinho. Tente novamente.",
+      );
     } finally {
       setAddindoCarrinho(false);
     }
@@ -236,7 +244,7 @@ export function AtendimentoForm() {
         {erro && <p className="text-xs text-red-600">{erro}</p>}
         <Button
           onClick={comprarAgora}
-          disabled={addindoCarrinho}
+          disabled={addindoCarrinho || !podeComprar}
           className="w-full rounded-none bg-foreground py-6 text-xs uppercase tracking-[0.3em] text-background hover:bg-foreground/90 disabled:opacity-50"
         >
           Comprar agora
@@ -252,7 +260,7 @@ export function AtendimentoForm() {
           ) : (
             <Button
               onClick={adicionarAoCarrinho}
-              disabled={addindoCarrinho}
+              disabled={addindoCarrinho || !podeComprar}
               variant="outline"
               className="w-full rounded-none border-foreground py-6 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background disabled:opacity-50"
             >

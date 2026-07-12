@@ -75,40 +75,47 @@ def criar_pedido(
             por_produto[REFIL_PRODUTO] = por_produto.get(REFIL_PRODUTO, 0) + item["quantidade"]
 
     baixados: list[tuple[str, int]] = []
-    try:
-        for produto_nome, quantidade in por_produto.items():
-            baixar_estoque(produto_nome, quantidade)
-            baixados.append((produto_nome, quantidade))
-    except HTTPException:
-        for produto_nome, quantidade in baixados:
-            repor_estoque(produto_nome, quantidade)
-        raise
 
     def _desfazer_estoque() -> None:
         for produto_nome, quantidade in baixados:
             repor_estoque(produto_nome, quantidade)
 
-    pedido = insert_pedido(
-        {
-            "user_id": user_id,
-            "nome_cliente": nome_cliente,
-            "telefone": telefone,
-            **endereco,
-            "observacoes": observacoes,
-            "total_centavos": total,
-        }
-    )
+    try:
+        for produto_nome, quantidade in por_produto.items():
+            baixar_estoque(produto_nome, quantidade)
+            baixados.append((produto_nome, quantidade))
+    except HTTPException:
+        _desfazer_estoque()
+        raise
+
+    try:
+        pedido = insert_pedido(
+            {
+                "user_id": user_id,
+                "nome_cliente": nome_cliente,
+                "telefone": telefone,
+                **endereco,
+                "observacoes": observacoes,
+                "total_centavos": total,
+            }
+        )
+    except Exception:
+        _desfazer_estoque()
+        raise
     if not pedido:
         _desfazer_estoque()
         raise HTTPException(status_code=500, detail="Falha ao salvar pedido")
 
-    itens_salvos = insert_pedido_itens(
-        [{**item, "pedido_id": pedido["id"]} for item in itens_calculados]
-    )
-    if len(itens_salvos) != len(itens_calculados):
+    try:
+        itens_salvos = insert_pedido_itens(
+            [{**item, "pedido_id": pedido["id"]} for item in itens_calculados]
+        )
+        if len(itens_salvos) != len(itens_calculados):
+            raise HTTPException(status_code=500, detail="Falha ao salvar itens do pedido")
+    except Exception:
         delete_pedido(pedido["id"])
         _desfazer_estoque()
-        raise HTTPException(status_code=500, detail="Falha ao salvar itens do pedido")
+        raise
 
     return {**pedido, "itens": itens_salvos}
 
