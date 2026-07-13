@@ -16,6 +16,7 @@ import { ApiError, apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { REFIL_PRODUTO, formatarPreco, precoUnitario, type ProdutoApi } from "@/lib/precos";
 import { salvarItemDireto } from "@/lib/checkout";
+import { PRODUTO_IMAGENS } from "@/lib/produto-imagens";
 
 interface Aroma {
   id: string;
@@ -36,6 +37,7 @@ export function AtendimentoForm() {
   });
 
   const [produtoId, setProdutoId] = useState<string>("");
+  const [fotoIdx, setFotoIdx] = useState(0);
   const [tamanho, setTamanho] = useState("250ml");
   const [aroma, setAroma] = useState("");
   const [refil, setRefil] = useState("nao");
@@ -65,9 +67,13 @@ export function AtendimentoForm() {
 
   const handleProdutoChange = (id: string) => {
     setProdutoId(id);
+    setFotoIdx(0);
     const p = produtos.find((x) => x.id === id);
     if (p && !p.tamanhos.includes(tamanho)) setTamanho(p.tamanhos[0]);
   };
+
+  const fotos = (effectiveProduto && PRODUTO_IMAGENS[effectiveProduto.nome]) ?? [];
+  const fotoAtual = fotos[fotoIdx] ?? fotos[0];
 
   const isRefil = effectiveProduto?.nome.toLowerCase().includes("refil") ?? false;
   // O add-on "com refil" só existe quando o produto Refil tem preço no tamanho
@@ -165,6 +171,48 @@ export function AtendimentoForm() {
       </div>
 
       <div className="space-y-6">
+        {effectiveProduto && fotoAtual && (
+          <div className="space-y-2">
+            <div className="overflow-hidden bg-secondary">
+              <img
+                key={fotoAtual}
+                src={fotoAtual}
+                alt={effectiveProduto.nome}
+                width={800}
+                height={1000}
+                loading="lazy"
+                className="animate-fade-up h-56 w-full object-contain"
+              />
+            </div>
+            {fotos.length > 1 && (
+              <div className="flex gap-2">
+                {fotos.map((foto, i) => (
+                  <button
+                    key={foto}
+                    type="button"
+                    onClick={() => setFotoIdx(i)}
+                    aria-label={`Foto ${i + 1} de ${effectiveProduto.nome}`}
+                    className={`h-14 w-14 overflow-hidden border transition-colors ${
+                      i === fotoIdx
+                        ? "border-foreground"
+                        : "border-border opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <img
+                      src={foto}
+                      alt=""
+                      width={112}
+                      height={112}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Tamanho

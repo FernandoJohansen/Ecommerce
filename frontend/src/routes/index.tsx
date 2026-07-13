@@ -6,10 +6,7 @@ import { isAuthenticated, isStaff } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { formatarPreco, menorPreco, type ProdutoApi } from "@/lib/precos";
 import hero from "@/assets/hero-diffuser.jpg";
-import pGlass from "@/assets/product-glass.jpg";
-import pPet from "@/assets/product-pet.jpg";
-import pSpray from "@/assets/product-spray.jpg";
-import pRefill from "@/assets/product-refill.jpg";
+import { PRODUTO_IMAGENS } from "@/lib/produto-imagens";
 import { AtendimentoForm } from "@/components/AtendimentoForm";
 import { Reveal } from "@/components/Reveal";
 
@@ -30,32 +27,53 @@ export const Route = createFileRoute("/")({
 // apiNome liga o card ao produto no catálogo (coluna "nome" no banco)
 const products = [
   {
-    img: pGlass,
+    imgs: PRODUTO_IMAGENS["Difusor de Vidro"],
     nome: "Difusor de Vidro",
     apiNome: "Difusor de Vidro",
     desc: "Disponível em 100ml e 250ml. Frasco em vidro com fitas e varetas pretas.",
     tag: "Linha Premium",
   },
   {
-    img: pPet,
+    imgs: PRODUTO_IMAGENS["Difusor PET"],
     nome: "Difusor PET",
     apiNome: "Difusor PET",
     desc: "Tamanho único 250ml. Praticidade em embalagem leve e resistente.",
     tag: "Tamanho único",
   },
   {
-    img: pSpray,
+    imgs: PRODUTO_IMAGENS["Home Spray"],
     nome: "Home Spray",
     apiNome: "Home Spray",
     desc: "Borrife e perfume o ambiente em segundos. Fixação prolongada.",
     tag: "Aplicação rápida",
   },
   {
-    img: pRefill,
+    imgs: PRODUTO_IMAGENS["Refil"],
     nome: "Refis",
     apiNome: "Refil",
     desc: "Renove o aroma do seu difusor com nossos refis em diversos volumes.",
     tag: "Recarregue & economize",
+  },
+  {
+    imgs: PRODUTO_IMAGENS["Kit Lavabo"],
+    nome: "Kit Lavabo",
+    apiNome: "Kit Lavabo",
+    desc: "Difusor e sabonete líquido em vidro para o lavabo. Disponível em 100ml e 250ml.",
+    tag: "Para o lavabo",
+  },
+  {
+    imgs: PRODUTO_IMAGENS["CarSpray"],
+    nome: "CarSpray",
+    apiNome: "CarSpray",
+    desc: "Spray de 60ml para perfumar o carro onde você estiver.",
+    tag: "Para o carro",
+  },
+  {
+    imgs: PRODUTO_IMAGENS["Difusor de Carro"],
+    nome: "Difusor de Carro",
+    apiNome: "Difusor de Carro",
+    desc: "Difusor compacto para pendurar no retrovisor e perfumar o dia a dia.",
+    tag: "Para o carro",
   },
 ];
 
@@ -283,8 +301,7 @@ function Produtos() {
           </div>
           <p className="max-w-md text-muted-foreground">
             Os destaques da coleção, pensados para diferentes ambientes e ocasiões. No atendimento
-            você encontra a linha completa: kits lavabo, sprays e difusores para carro, refis e
-            varetas.
+            você também encontra varetas de reposição.
           </p>
         </Reveal>
 
@@ -294,13 +311,24 @@ function Produtos() {
               <article className="group flex h-full flex-col p-6">
                 <div className="relative overflow-hidden bg-secondary">
                   <img
-                    src={p.img}
+                    src={p.imgs[0]}
                     alt={p.nome}
                     width={800}
                     height={1000}
                     loading="lazy"
-                    className="h-80 w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    className="h-80 w-full object-contain transition-transform duration-700 ease-out group-hover:scale-105"
                   />
+                  {p.imgs[1] && (
+                    <img
+                      src={p.imgs[1]}
+                      alt=""
+                      width={800}
+                      height={1000}
+                      loading="lazy"
+                      aria-hidden
+                      className="absolute inset-0 h-80 w-full bg-secondary object-contain opacity-0 transition-opacity duration-700 ease-out group-hover:opacity-100"
+                    />
+                  )}
                   <span className="serif absolute left-4 top-3 text-sm tracking-widest text-foreground/60">
                     {String(i + 1).padStart(2, "0")}
                   </span>
