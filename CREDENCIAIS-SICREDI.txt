@@ -1,0 +1,67 @@
+CREDENCIAIS E CERTIFICADOS DA API PIX SICREDI — O QUE SÃO
+==========================================================
+(referência rápida; o passo a passo de ativação está no PENDENCIAS.txt,
+Sprint 6; os caminhos/variáveis ficam em backend/.env.example)
+
+São as duas camadas de segurança que o Sicredi exige antes de deixar
+qualquer sistema criar cobranças PIX na conta da Carolina. Cada uma
+responde uma pergunta diferente: "quem é você?" e "essa conexão vem
+mesmo de você?".
+
+1. CLIENT ID + CLIENT SECRET (as credenciais)
+---------------------------------------------
+Funcionam como usuário e senha para software, em vez de pessoa. Antes de
+falar com o Sicredi, o backend envia esse par para POST /oauth/token e
+recebe um token de acesso válido por ~60 minutos; toda chamada seguinte
+carrega esse token. É o fluxo OAuth2 "client credentials", padrão em
+APIs bancárias e de pagamento.
+
+Se alguém roubar esse par, pode tentar agir como a loja — por isso ele
+vive só no backend/.env e nunca vai para o git.
+
+2. CERTIFICADO + CHAVE PRIVADA (a camada mTLS)
+----------------------------------------------
+O HTTPS comum só prova a identidade do SERVIDOR (o navegador confere que
+está falando com o sicredi.com.br de verdade). APIs bancárias no Brasil
+vão além, com TLS MÚTUO (mTLS): o CLIENTE também precisa apresentar um
+certificado provando sua identidade antes mesmo de a conexão ser aceita.
+É isso que são os arquivos do Portal do Desenvolvedor:
+
+- APLICACAO.KEY — a chave privada. Gerada junto com o CSR (requisição de
+  assinatura) quando o certificado foi pedido no portal. É o segredo de
+  verdade: quem tem essa chave consegue se passar pelo sistema da loja.
+  Nunca sai do servidor, nunca é commitada.
+
+- Certificado digital .CER — o certificado público, assinado pelo
+  Sicredi, que faz par com a chave. Na prática diz: "o Sicredi atesta
+  que o dono desta chave é a integração autorizada da Carolina".
+
+- Cadeia completa .CER — a corrente de certificados intermediários que
+  liga a assinatura do Sicredi a uma raiz confiável. Opcional no nosso
+  setup (SICREDI_CA_PATH); ajuda o backend a confirmar que está falando
+  com o endpoint genuíno do Sicredi.
+
+COMO AS DUAS CAMADAS TRABALHAM JUNTAS
+-------------------------------------
+Cada chamada do backend/app/services/sicredi_client.py faz as duas
+coisas ao mesmo tempo: o handshake TLS apresenta certificado + chave
+(prova que a conexão vem do sistema autorizado da loja) e a requisição
+carrega o token OAuth obtido com o client id/secret (prova qual conta e
+quais permissões estão em jogo). O Sicredi exige as duas porque uma
+senha vazada sozinha, ou um certificado roubado sozinho, não basta para
+movimentar dinheiro.
+
+OBSERVAÇÕES PRÁTICAS
+--------------------
+- Tudo é emitido POR CONTA BANCÁRIA no Portal do Desenvolvedor
+  (developer.sicredi.com.br), e precisa casar com a mesma cooperativa,
+  conta e chave PIX (PIX_KEY do backend/.env).
+- Credenciais de PRODUÇÃO: geradas no portal, sobre o certificado com
+  status CERTIFICADO_VALIDADO ("Gerar Credenciais").
+- Credenciais de HOMOLOGAÇÃO (sandbox): vêm por outro caminho — Internet
+  Banking da conta (Outros Serviços > Acesso à API Pix > Gerar
+  Credenciais) ou por e-mail: integracoes_pix@sicredi.com.br.
+- O certificado NÃO é o certificado A1 da empresa; é gerado
+  especificamente no portal do Sicredi.
+- Nunca commitar: APLICACAO.KEY, .env, client secret. Se algum deles
+  vazar (inclusive colado em chat), revogar/regerar no portal.
