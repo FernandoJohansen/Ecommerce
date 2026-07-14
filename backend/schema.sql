@@ -63,6 +63,29 @@ CREATE TABLE pedido_itens (
 
 CREATE INDEX pedido_itens_pedido_idx ON pedido_itens (pedido_id);
 
+-- Cobranças PIX (API Sicredi). Status segue o Bacen: ATIVA, CONCLUIDA,
+-- REMOVIDA_PELO_USUARIO_RECEBEDOR, REMOVIDA_PELO_PSP. Pagamento confirmado
+-- também marca pedidos.status = 'pago'. Backend-only (service role); RLS
+-- habilitado sem policies.
+CREATE TABLE pagamentos (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  pedido_id       UUID        NOT NULL REFERENCES pedidos (id) ON DELETE CASCADE,
+  txid            TEXT        NOT NULL UNIQUE,
+  valor_centavos  INTEGER     NOT NULL CHECK (valor_centavos > 0),
+  status          TEXT        NOT NULL DEFAULT 'ATIVA',
+  -- pixCopiaECola retornado pelo Sicredi (usado para gerar o QR Code)
+  brcode          TEXT,
+  -- endToEndId do PIX recebido (preenchido na confirmação)
+  e2eid           TEXT,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  pago_em         TIMESTAMPTZ
+);
+
+CREATE INDEX pagamentos_pedido_idx ON pagamentos (pedido_id);
+
+-- Migration for databases created before Sprint 6 (PIX/Sicredi):
+--   see migrations/2026-07-14_sprint6_pagamentos.sql
+
 -- Migration for databases created before Sprint 5 (prices + order items):
 --   ALTER TABLE produtos ADD COLUMN precos JSONB NOT NULL DEFAULT '{}'::jsonb;
 --   UPDATE produtos SET precos = '{"250ml": 7990, "500ml": 11990}' WHERE nome = 'Difusor de Vidro';
@@ -104,6 +127,8 @@ ALTER TABLE produtos     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aromas       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pedidos      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pedido_itens ENABLE ROW LEVEL SECURITY;
+-- pagamentos: backend-only — RLS on, sem policies (anon/authenticated negados)
+ALTER TABLE pagamentos   ENABLE ROW LEVEL SECURITY;
 
 -- Public reads for the storefront
 CREATE POLICY "produtos_public_read"  ON produtos FOR SELECT USING (ativo = TRUE);

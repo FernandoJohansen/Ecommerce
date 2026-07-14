@@ -77,6 +77,7 @@ const enderecoResumo = (pedido: Pedido) => {
 const STATUS = {
   novo: "Novo",
   em_andamento: "Em andamento",
+  pago: "Pago",
   concluido: "Concluído",
   cancelado: "Cancelado",
 } as const;

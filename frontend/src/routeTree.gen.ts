@@ -17,6 +17,7 @@ import { Route as CarrinhoRouteImport } from './routes/carrinho'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PagamentoPedidoIdRouteImport } from './routes/pagamento.$pedidoId'
 
 const PerfilRoute = PerfilRouteImport.update({
   id: '/perfil',
@@ -58,6 +59,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PagamentoPedidoIdRoute = PagamentoPedidoIdRouteImport.update({
+  id: '/pagamento/$pedidoId',
+  path: '/pagamento/$pedidoId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/pedidos': typeof PedidosRoute
   '/perfil': typeof PerfilRoute
+  '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/pedidos': typeof PedidosRoute
   '/perfil': typeof PerfilRoute
+  '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/pedidos': typeof PedidosRoute
   '/perfil': typeof PerfilRoute
+  '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pedidos'
     | '/perfil'
+    | '/pagamento/$pedidoId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pedidos'
     | '/perfil'
+    | '/pagamento/$pedidoId'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pedidos'
     | '/perfil'
+    | '/pagamento/$pedidoId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PedidosRoute: typeof PedidosRoute
   PerfilRoute: typeof PerfilRoute
+  PagamentoPedidoIdRoute: typeof PagamentoPedidoIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pagamento/$pedidoId': {
+      id: '/pagamento/$pedidoId'
+      path: '/pagamento/$pedidoId'
+      fullPath: '/pagamento/$pedidoId'
+      preLoaderRoute: typeof PagamentoPedidoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PedidosRoute: PedidosRoute,
   PerfilRoute: PerfilRoute,
+  PagamentoPedidoIdRoute: PagamentoPedidoIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,4 +1,4 @@
-PENDÊNCIAS — Sprint Roadmap (atualizado em 13/07/2026)
+PENDÊNCIAS — Sprint Roadmap (atualizado em 14/07/2026)
 ========================================================
 (escopo completo conferido contra o Ecommerce.pdf em 13/07/2026)
 
@@ -79,14 +79,35 @@ PRÓXIMO TRABALHO
 ----------------
 
 Sprint 6 — PIX Integration (sprint atual pelo calendário)
-  [ ] Integração Sicredi PIX (hoje /api/pagamento/pix só retorna chave
-      estática com instrução de enviar comprovante pelo WhatsApp)
-  [ ] Geração de QR code
-  [ ] Webhooks / polling de confirmação de pagamento
-  [ ] Tabela "payments" no banco
-  [ ] Atualização automática de status do pedido após pagamento
-  (pré-requisito de preços/totais: OK, entregue no Sprint 5 —
-   pedidos.total_centavos)
+  [x] Integração Sicredi PIX — 14/07/2026: cliente da API Pix (OAuth2
+      client_credentials + mTLS, cache de token) em
+      backend/app/services/sicredi_client.py; cobrança imediata (cob)
+      criada por pedido em POST /api/pagamento/pix
+  [x] Geração de QR code (segno, SVG data URI no campo qrcode da resposta;
+      brcode = pixCopiaECola para o copia e cola)
+  [x] Webhooks + polling: POST /api/pagamento/webhook/pix recebe a
+      notificação do Sicredi e reconfere o status direto no PSP antes de
+      confirmar (idempotente); o frontend também faz polling de
+      GET /api/pagamento/pix/{txid} a cada 5s enquanto ATIVA
+  [x] Tabela "pagamentos" no banco (txid, valor, status Bacen, brcode,
+      e2eid; migrations/2026-07-14_sprint6_pagamentos.sql)
+  [x] Atualização automática de status do pedido após pagamento
+      (pedidos.status = 'pago'; novo status visível no admin)
+  [x] Tela de pagamento no frontend (/pagamento/:pedidoId): QR + copia e
+      cola + polling até a confirmação; checkout agora redireciona para ela.
+      Sem credenciais Sicredi configuradas, a tela cai no fluxo antigo
+      ("entraremos em contato pelo WhatsApp")
+  PENDENTE PARA ATIVAR EM PRODUÇÃO:
+  [ ] Aplicar migrations/2026-07-14_sprint6_pagamentos.sql no banco de
+      produção (psql via session pooler)
+  [ ] Preencher SICREDI_* e PIX_WEBHOOK_URL no backend/.env (ver
+      backend/.env.example) com as credenciais/certificado do Portal do
+      Desenvolvedor Sicredi
+  [ ] Backend público em HTTPS + registrar o webhook no Sicredi via
+      PUT /api/pagamento/webhook (staff); conferir com GET /api/pagamento/webhook
+  [ ] Teste ponta a ponta em homologação (base URL
+      https://api-pix-h.sicredi.com.br; credenciais de homologação são
+      solicitadas por e-mail: integracoes_pix@sicredi.com.br)
 
 SPRINTS FUTUROS (escopo do Ecommerce.pdf, nada iniciado)
 --------------------------------------------------------

@@ -11,6 +11,11 @@ def insert_pedido_itens(itens: list[dict]) -> list[dict]:
     return result.data or []
 
 
+def get_pedido_by_id(pedido_id: str) -> dict | None:
+    result = supabase.table("pedidos").select("*").eq("id", pedido_id).execute()
+    return result.data[0] if result.data else None
+
+
 def get_all_pedidos() -> list[dict]:
     result = (
         supabase.table("pedidos")

@@ -151,7 +151,6 @@ function CheckoutPage() {
   const [estado, setEstado] = useState("PR");
   const [obs, setObs] = useState("");
   const [erros, setErros] = useState<Record<string, string>>({});
-  const [pedidoCriado, setPedidoCriado] = useState<PedidoCriado | null>(null);
 
   const validar = () => {
     const novos: Record<string, string> = {};
@@ -210,7 +209,7 @@ function CheckoutPage() {
     onSuccess: (pedido) => {
       if (modoDireto) limparItemDireto();
       else queryClient.setQueryData(["carrinho"], []);
-      setPedidoCriado(pedido);
+      navigate({ to: "/pagamento/$pedidoId", params: { pedidoId: pedido.id } });
     },
   });
 
@@ -256,161 +255,142 @@ function CheckoutPage() {
           </Button>
         </div>
 
-        {pedidoCriado ? (
-          <div className="border border-border p-8 text-center sm:p-12">
-            <p className="serif mb-4 text-2xl">Pedido confirmado!</p>
-            <p className="mb-2 text-sm text-muted-foreground">
-              Total: {formatarPreco(pedidoCriado.total_centavos)}
-            </p>
-            <p className="mb-8 text-sm text-muted-foreground">
-              Recebemos o seu pedido e entraremos em contato em breve para combinar o pagamento e a
-              entrega.
-            </p>
-            <Button
-              asChild
-              className="rounded-none bg-foreground text-xs uppercase tracking-[0.2em] text-background hover:bg-foreground/90"
-            >
-              <Link to="/">Voltar à loja</Link>
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-8 md:grid-cols-[1fr_320px]">
-            <div className="border border-border p-8">
-              <h2 className="serif mb-8 text-2xl">Dados de entrega</h2>
-              <div className="space-y-6">
-                <div className="grid gap-6 sm:grid-cols-2">
-                  {campo("Nome completo", nome, setNome, "nome")}
-                  {campo(
-                    "Telefone / WhatsApp",
-                    telefone,
-                    (v) => setTelefone(formatarTelefone(v)),
-                    "telefone",
-                    {
-                      placeholder: "(42) 99999-9999",
-                    },
-                  )}
-                </div>
-                <div className="grid gap-6 sm:grid-cols-[140px_1fr_100px]">
-                  {campo("CEP", cep, (v) => setCep(formatarCep(v)), "cep", {
-                    placeholder: "84000-000",
-                  })}
-                  {campo("Rua", rua, setRua, "rua")}
-                  {campo("Número", numero, setNumero, "numero")}
-                </div>
-                <div className="grid gap-6 sm:grid-cols-2">
-                  {campo("Complemento (opcional)", complemento, setComplemento, "complemento")}
-                  {campo("Bairro", bairro, setBairro, "bairro")}
-                </div>
-                <div className="grid gap-6 sm:grid-cols-[1fr_120px]">
-                  {campo("Cidade", cidade, setCidade, "cidade")}
-                  <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      UF
-                    </Label>
-                    <Select value={estado} onValueChange={setEstado}>
-                      <SelectTrigger className="rounded-none border-0 border-b border-foreground bg-transparent px-0 text-base">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {UFS.map((uf) => (
-                          <SelectItem key={uf} value={uf}>
-                            {uf}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {erros.estado && <p className="text-xs text-destructive">{erros.estado}</p>}
-                  </div>
-                </div>
+        <div className="grid gap-8 md:grid-cols-[1fr_320px]">
+          <div className="border border-border p-8">
+            <h2 className="serif mb-8 text-2xl">Dados de entrega</h2>
+            <div className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
+                {campo("Nome completo", nome, setNome, "nome")}
+                {campo(
+                  "Telefone / WhatsApp",
+                  telefone,
+                  (v) => setTelefone(formatarTelefone(v)),
+                  "telefone",
+                  {
+                    placeholder: "(42) 99999-9999",
+                  },
+                )}
+              </div>
+              <div className="grid gap-6 sm:grid-cols-[140px_1fr_100px]">
+                {campo("CEP", cep, (v) => setCep(formatarCep(v)), "cep", {
+                  placeholder: "84000-000",
+                })}
+                {campo("Rua", rua, setRua, "rua")}
+                {campo("Número", numero, setNumero, "numero")}
+              </div>
+              <div className="grid gap-6 sm:grid-cols-2">
+                {campo("Complemento (opcional)", complemento, setComplemento, "complemento")}
+                {campo("Bairro", bairro, setBairro, "bairro")}
+              </div>
+              <div className="grid gap-6 sm:grid-cols-[1fr_120px]">
+                {campo("Cidade", cidade, setCidade, "cidade")}
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Observações (opcional)
+                    UF
                   </Label>
-                  <Textarea
-                    value={obs}
-                    onChange={(e) => setObs(e.target.value)}
-                    rows={3}
-                    className="rounded-none border border-foreground/30 bg-transparent"
-                  />
+                  <Select value={estado} onValueChange={setEstado}>
+                    <SelectTrigger className="rounded-none border-0 border-b border-foreground bg-transparent px-0 text-base">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {UFS.map((uf) => (
+                        <SelectItem key={uf} value={uf}>
+                          {uf}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {erros.estado && <p className="text-xs text-destructive">{erros.estado}</p>}
                 </div>
               </div>
-            </div>
-
-            <div className="h-fit border border-border p-8">
-              <h2 className="serif mb-6 text-2xl">Resumo</h2>
-              {!modoDireto && carregandoCarrinho && (
-                <p className="text-sm text-muted-foreground">Carregando…</p>
-              )}
-              {itens.length === 0 && !carregandoCarrinho && (
-                <div>
-                  <p className="mb-6 text-sm text-muted-foreground">Nenhum item para finalizar.</p>
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="w-full rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
-                  >
-                    <Link to="/" hash="atendimento">
-                      Escolher produtos
-                    </Link>
-                  </Button>
-                </div>
-              )}
-              {itens.length > 0 && (
-                <>
-                  <ul className="divide-y divide-border">
-                    {itens.map((item, i) => (
-                      <li key={i} className="py-4">
-                        <p className="serif text-lg">{item.produto_nome}</p>
-                        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                          {item.tamanho} · {item.aroma}
-                          {item.refil ? " · com refil" : ""} · {item.quantidade}x
-                        </p>
-                        <p className="mt-1 text-sm">
-                          {item.subtotal_centavos !== null
-                            ? formatarPreco(item.subtotal_centavos)
-                            : "—"}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
-                    <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      Total
-                    </span>
-                    <span className="serif text-2xl">
-                      {carregandoPrecos || temItemSemPreco ? "—" : formatarPreco(total)}
-                    </span>
-                  </div>
-
-                  {temItemSemPreco && (
-                    <p className="mt-4 text-sm text-destructive">
-                      Um dos itens está sem preço disponível.{" "}
-                      {modoDireto
-                        ? "Volte à loja e refaça a seleção."
-                        : "Remova-o do carrinho para continuar."}
-                    </p>
-                  )}
-
-                  {enviar.isError && (
-                    <p className="mt-4 text-sm text-destructive">
-                      {enviar.error instanceof ApiError && enviar.error.detail
-                        ? enviar.error.detail
-                        : "Não foi possível confirmar o pedido. Confira os dados e tente novamente."}
-                    </p>
-                  )}
-
-                  <Button
-                    onClick={submeter}
-                    disabled={enviar.isPending || carregandoPrecos || temItemSemPreco}
-                    className="mt-6 w-full rounded-none bg-foreground py-6 text-xs uppercase tracking-[0.3em] text-background hover:bg-foreground/90 disabled:opacity-50"
-                  >
-                    {enviar.isPending ? "Confirmando…" : "Confirmar pedido"}
-                  </Button>
-                </>
-              )}
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Observações (opcional)
+                </Label>
+                <Textarea
+                  value={obs}
+                  onChange={(e) => setObs(e.target.value)}
+                  rows={3}
+                  className="rounded-none border border-foreground/30 bg-transparent"
+                />
+              </div>
             </div>
           </div>
-        )}
+
+          <div className="h-fit border border-border p-8">
+            <h2 className="serif mb-6 text-2xl">Resumo</h2>
+            {!modoDireto && carregandoCarrinho && (
+              <p className="text-sm text-muted-foreground">Carregando…</p>
+            )}
+            {itens.length === 0 && !carregandoCarrinho && (
+              <div>
+                <p className="mb-6 text-sm text-muted-foreground">Nenhum item para finalizar.</p>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
+                >
+                  <Link to="/" hash="atendimento">
+                    Escolher produtos
+                  </Link>
+                </Button>
+              </div>
+            )}
+            {itens.length > 0 && (
+              <>
+                <ul className="divide-y divide-border">
+                  {itens.map((item, i) => (
+                    <li key={i} className="py-4">
+                      <p className="serif text-lg">{item.produto_nome}</p>
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                        {item.tamanho} · {item.aroma}
+                        {item.refil ? " · com refil" : ""} · {item.quantidade}x
+                      </p>
+                      <p className="mt-1 text-sm">
+                        {item.subtotal_centavos !== null
+                          ? formatarPreco(item.subtotal_centavos)
+                          : "—"}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
+                  <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    Total
+                  </span>
+                  <span className="serif text-2xl">
+                    {carregandoPrecos || temItemSemPreco ? "—" : formatarPreco(total)}
+                  </span>
+                </div>
+
+                {temItemSemPreco && (
+                  <p className="mt-4 text-sm text-destructive">
+                    Um dos itens está sem preço disponível.{" "}
+                    {modoDireto
+                      ? "Volte à loja e refaça a seleção."
+                      : "Remova-o do carrinho para continuar."}
+                  </p>
+                )}
+
+                {enviar.isError && (
+                  <p className="mt-4 text-sm text-destructive">
+                    {enviar.error instanceof ApiError && enviar.error.detail
+                      ? enviar.error.detail
+                      : "Não foi possível confirmar o pedido. Confira os dados e tente novamente."}
+                  </p>
+                )}
+
+                <Button
+                  onClick={submeter}
+                  disabled={enviar.isPending || carregandoPrecos || temItemSemPreco}
+                  className="mt-6 w-full rounded-none bg-foreground py-6 text-xs uppercase tracking-[0.3em] text-background hover:bg-foreground/90 disabled:opacity-50"
+                >
+                  {enviar.isPending ? "Confirmando…" : "Confirmar pedido"}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
