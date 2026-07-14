@@ -5,7 +5,7 @@ import logo from "@/assets/logo.png";
 import { isAuthenticated, isStaff } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { formatarPreco, menorPreco, type ProdutoApi } from "@/lib/precos";
-import hero from "@/assets/hero-diffuser.jpg";
+import hero from "@/assets/products/difusor_vidro3.jpeg";
 import { PRODUTO_IMAGENS } from "@/lib/produto-imagens";
 import { AtendimentoForm } from "@/components/AtendimentoForm";
 import { Reveal } from "@/components/Reveal";

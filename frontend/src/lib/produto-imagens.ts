@@ -1,18 +1,18 @@
-import pGlass from "@/assets/product-glass.jpg";
-import pGlass2 from "@/assets/product-glass-2.jpg";
-import pGlass3 from "@/assets/product-glass-3.jpg";
-import pPet from "@/assets/product-pet.jpg";
-import pSpray from "@/assets/product-spray.jpg";
-import pSpray2 from "@/assets/product-spray-2.jpg";
-import pSpray3 from "@/assets/product-spray-3.jpg";
-import pSpray4 from "@/assets/product-spray-4.jpg";
-import pRefill from "@/assets/product-refill.jpg";
-import pKitLavabo from "@/assets/product-kit-lavabo.jpg";
-import pKitLavabo2 from "@/assets/product-kit-lavabo-2.jpg";
-import pKitLavabo3 from "@/assets/product-kit-lavabo-3.jpg";
-import pCarSpray from "@/assets/product-carspray.jpg";
-import pCarDiffuser from "@/assets/product-car-diffuser.jpg";
-import pCarDiffuser2 from "@/assets/product-car-diffuser-2.jpg";
+import pGlass from "@/assets/products/difusor_vidro1.jpeg";
+import pGlass2 from "@/assets/products/difusor_vidro2.jpeg";
+import pGlass3 from "@/assets/products/difusor_vidro3.jpeg";
+import pPet from "@/assets/products/difusor_pet.jpeg";
+import pSpray from "@/assets/products/home_spray2.jpeg";
+import pSpray2 from "@/assets/products/home_spray1.jpeg";
+import pSpray3 from "@/assets/products/home_spray3.jpeg";
+import pSpray4 from "@/assets/products/home_spray4.jpeg";
+import pRefill from "@/assets/products/refil.jpeg";
+import pKitLavabo from "@/assets/products/kit_lavabo1.jpeg";
+import pKitLavabo2 from "@/assets/products/kit_lavabo.jpeg";
+import pKitLavabo3 from "@/assets/products/kit_lavabo2.jpeg";
+import pCarSpray from "@/assets/products/car_spray.jpeg";
+import pCarDiffuser from "@/assets/products/difusor_carro_10ml2.jpeg";
+import pCarDiffuser2 from "@/assets/products/difusor_carro_10ml1.jpeg";
 
 // Chaves = coluna "nome" na tabela produtos. Produtos sem foto
 // (Varetas) ficam de fora. A primeira imagem é a principal.
