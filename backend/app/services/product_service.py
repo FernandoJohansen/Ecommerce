@@ -4,8 +4,14 @@ from app.repositories.product_repository import (
     adjust_estoque,
     get_all_aromas,
     get_all_produtos,
+    get_all_produtos_admin,
+    get_produto_by_id,
+    get_produto_by_nome,
+    insert_produto,
+    update_produto,
     update_produto_estoque,
 )
+from app.schemas.product import ProdutoCreate, ProdutoUpdate
 
 
 # Nome do produto que serve de add-on quando um item é pedido "com refil".
@@ -55,6 +61,47 @@ def preco_unitario(
             )
         preco += preco_refil
     return preco
+
+
+def list_produtos_admin() -> list[dict]:
+    return get_all_produtos_admin()
+
+
+def _checar_precos_nos_tamanhos(tamanhos: list[str], precos: dict[str, int]) -> None:
+    fora = sorted(set(precos) - set(tamanhos))
+    if fora:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Preço para tamanho fora da lista de tamanhos: {', '.join(fora)}",
+        )
+
+
+def criar_produto(body: ProdutoCreate) -> dict:
+    _checar_precos_nos_tamanhos(body.tamanhos, body.precos)
+    if get_produto_by_nome(body.nome):
+        raise HTTPException(status_code=409, detail=f"Já existe um produto chamado {body.nome}")
+    return insert_produto(body.model_dump())
+
+
+def atualizar_produto(produto_id: str, body: ProdutoUpdate) -> dict:
+    atual = get_produto_by_id(produto_id)
+    if not atual:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    campos = body.model_dump(exclude_unset=True)
+    if not campos:
+        raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
+
+    novo_nome = campos.get("nome")
+    if novo_nome and novo_nome != atual["nome"] and get_produto_by_nome(novo_nome):
+        raise HTTPException(status_code=409, detail=f"Já existe um produto chamado {novo_nome}")
+
+    # Valida o estado final: tamanhos/preços não enviados vêm do produto atual.
+    tamanhos = campos.get("tamanhos", atual.get("tamanhos") or [])
+    precos = campos.get("precos", atual.get("precos") or {})
+    _checar_precos_nos_tamanhos(tamanhos, precos)
+
+    return update_produto(produto_id, campos)
 
 
 def set_estoque(produto_id: str, estoque: int) -> dict:

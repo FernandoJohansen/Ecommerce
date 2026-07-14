@@ -14,12 +14,22 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -30,7 +40,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import { isAdmin, isAuthenticated, isStaff, logout, type Role } from "@/lib/auth";
 import { formatarPreco } from "@/lib/precos";
 
@@ -98,9 +108,25 @@ type Produto = {
   id: string;
   nome: string;
   tamanhos: string[];
+  descricao: string | null;
   tag: string | null;
+  ordem: number;
+  ativo: boolean;
   estoque: number;
+  precos: Record<string, number>;
 };
+
+// Converte "79,90" (ou "79.90") para centavos; null quando inválido.
+const parsePrecoReais = (valor: string): number | null => {
+  const texto = valor.trim();
+  if (!texto) return null;
+  const normalizado = texto.includes(",") ? texto.replace(/\./g, "").replace(",", ".") : texto;
+  const reais = Number(normalizado);
+  if (!Number.isFinite(reais) || reais <= 0) return null;
+  return Math.round(reais * 100);
+};
+
+const precoParaInput = (centavos: number) => (centavos / 100).toFixed(2).replace(".", ",");
 
 const ROLES: Record<Role, string> = {
   customer: "Cliente",
@@ -113,7 +139,8 @@ function AdminPage() {
   const queryClient = useQueryClient();
   const [checked, setChecked] = useState(false);
   const [filtro, setFiltro] = useState<"todos" | StatusKey>("todos");
-  const [aba, setAba] = useState<"pedidos" | "estoque" | "usuarios">("pedidos");
+  const [aba, setAba] = useState<"pedidos" | "produtos" | "usuarios">("pedidos");
+  const [editando, setEditando] = useState<Produto | "novo" | null>(null);
   const admin = checked && isAdmin();
   const staff = checked && isStaff();
 
@@ -165,10 +192,15 @@ function AdminPage() {
     isLoading: carregandoProdutos,
     error: erroProdutos,
   } = useQuery<Produto[]>({
-    queryKey: ["produtos"],
-    queryFn: () => apiFetch("/produtos"),
-    enabled: staff && aba === "estoque",
+    queryKey: ["produtos-admin"],
+    queryFn: () => apiFetch("/produtos/admin"),
+    enabled: staff && aba === "produtos",
   });
+
+  const invalidarProdutos = () => {
+    queryClient.invalidateQueries({ queryKey: ["produtos-admin"] });
+    queryClient.invalidateQueries({ queryKey: ["produtos"] });
+  };
 
   const salvarEstoque = useMutation({
     mutationFn: ({ id, estoque }: { id: string; estoque: number }) =>
@@ -177,7 +209,17 @@ function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estoque }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["produtos"] }),
+    onSuccess: invalidarProdutos,
+  });
+
+  const alternarAtivo = useMutation({
+    mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) =>
+      apiFetch(`/produtos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo }),
+      }),
+    onSuccess: invalidarProdutos,
   });
 
   const alterarRole = useMutation({
@@ -243,8 +285,8 @@ function AdminPage() {
         {staff && (
           <div className="mb-8 flex gap-2">
             {(admin
-              ? (["pedidos", "estoque", "usuarios"] as const)
-              : (["pedidos", "estoque"] as const)
+              ? (["pedidos", "produtos", "usuarios"] as const)
+              : (["pedidos", "produtos"] as const)
             ).map((tab) => (
               <button
                 key={tab}
@@ -255,7 +297,7 @@ function AdminPage() {
                     : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
                 }`}
               >
-                {tab === "pedidos" ? "Pedidos" : tab === "estoque" ? "Estoque" : "Usuários"}
+                {tab === "pedidos" ? "Pedidos" : tab === "produtos" ? "Produtos" : "Usuários"}
               </button>
             ))}
           </div>
@@ -320,8 +362,18 @@ function AdminPage() {
           </>
         )}
 
-        {aba === "estoque" && staff && (
+        {aba === "produtos" && staff && (
           <>
+            <div className="mb-8 flex justify-end">
+              <Button
+                onClick={() => setEditando("novo")}
+                variant="outline"
+                className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
+              >
+                Novo produto
+              </Button>
+            </div>
+
             {carregandoProdutos && (
               <p className="text-sm text-muted-foreground">Carregando produtos…</p>
             )}
@@ -337,23 +389,41 @@ function AdminPage() {
                     <TableRow>
                       <TableHead>Produto</TableHead>
                       <TableHead>Tag</TableHead>
-                      <TableHead>Tamanhos</TableHead>
+                      <TableHead>Preços</TableHead>
+                      <TableHead>Ordem</TableHead>
                       <TableHead>Estoque</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {produtos.map((produto) => (
-                      <EstoqueRow
+                      <ProdutoRow
                         key={produto.id}
                         produto={produto}
-                        saving={salvarEstoque.isPending}
-                        onSave={(estoque) => salvarEstoque.mutate({ id: produto.id, estoque })}
+                        salvandoEstoque={salvarEstoque.isPending}
+                        onSalvarEstoque={(estoque) =>
+                          salvarEstoque.mutate({ id: produto.id, estoque })
+                        }
+                        alternandoAtivo={alternarAtivo.isPending}
+                        onAlternarAtivo={() =>
+                          alternarAtivo.mutate({ id: produto.id, ativo: !produto.ativo })
+                        }
+                        onEditar={() => setEditando(produto)}
                       />
                     ))}
                   </TableBody>
                 </Table>
               </div>
+            )}
+
+            {editando !== null && (
+              <ProdutoDialog
+                key={editando === "novo" ? "novo" : editando.id}
+                produto={editando === "novo" ? null : editando}
+                onFechar={() => setEditando(null)}
+                onSalvo={invalidarProdutos}
+              />
             )}
           </>
         )}
@@ -497,14 +567,20 @@ function AdminPage() {
   );
 }
 
-function EstoqueRow({
+function ProdutoRow({
   produto,
-  saving,
-  onSave,
+  salvandoEstoque,
+  onSalvarEstoque,
+  alternandoAtivo,
+  onAlternarAtivo,
+  onEditar,
 }: {
   produto: Produto;
-  saving: boolean;
-  onSave: (estoque: number) => void;
+  salvandoEstoque: boolean;
+  onSalvarEstoque: (estoque: number) => void;
+  alternandoAtivo: boolean;
+  onAlternarAtivo: () => void;
+  onEditar: () => void;
 }) {
   const [valor, setValor] = useState(String(produto.estoque));
 
@@ -517,10 +593,22 @@ function EstoqueRow({
   const alterado = valido && parsed !== produto.estoque;
 
   return (
-    <TableRow>
+    <TableRow className={produto.ativo ? undefined : "opacity-50"}>
       <TableCell>{produto.nome}</TableCell>
       <TableCell>{produto.tag ?? "—"}</TableCell>
-      <TableCell>{produto.tamanhos.join(", ")}</TableCell>
+      <TableCell>
+        <ul className="space-y-1">
+          {produto.tamanhos.map((tamanho) => (
+            <li key={tamanho} className="whitespace-nowrap">
+              {tamanho} ·{" "}
+              {produto.precos[tamanho] !== undefined
+                ? formatarPreco(produto.precos[tamanho])
+                : "sem preço"}
+            </li>
+          ))}
+        </ul>
+      </TableCell>
+      <TableCell>{produto.ordem}</TableCell>
       <TableCell>
         <div className="flex items-center gap-3">
           <Input
@@ -530,22 +618,259 @@ function EstoqueRow({
             onChange={(e) => setValor(e.target.value)}
             className="w-24 rounded-none"
           />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!alterado || salvandoEstoque}
+            onClick={() => onSalvarEstoque(parsed)}
+            className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
+          >
+            Salvar
+          </Button>
           {produto.estoque === 0 && (
             <span className="text-xs uppercase tracking-[0.1em] text-destructive">Esgotado</span>
           )}
         </div>
       </TableCell>
-      <TableCell className="text-right">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!alterado || saving}
-          onClick={() => onSave(parsed)}
-          className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
+      <TableCell>
+        <span
+          className={`text-xs uppercase tracking-[0.1em] ${
+            produto.ativo ? "text-foreground" : "text-muted-foreground"
+          }`}
         >
-          Salvar
-        </Button>
+          {produto.ativo ? "Ativo" : "Inativo"}
+        </span>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEditar}
+            className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
+          >
+            Editar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={alternandoAtivo}
+            onClick={onAlternarAtivo}
+            className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
+          >
+            {produto.ativo ? "Desativar" : "Reativar"}
+          </Button>
+        </div>
       </TableCell>
     </TableRow>
+  );
+}
+
+type LinhaPreco = { tamanho: string; preco: string };
+
+function ProdutoDialog({
+  produto,
+  onFechar,
+  onSalvo,
+}: {
+  produto: Produto | null;
+  onFechar: () => void;
+  onSalvo: () => void;
+}) {
+  const [nome, setNome] = useState(produto?.nome ?? "");
+  const [tag, setTag] = useState(produto?.tag ?? "");
+  const [descricao, setDescricao] = useState(produto?.descricao ?? "");
+  const [ordem, setOrdem] = useState(String(produto?.ordem ?? 0));
+  const [linhas, setLinhas] = useState<LinhaPreco[]>(
+    produto
+      ? produto.tamanhos.map((tamanho) => ({
+          tamanho,
+          preco:
+            produto.precos[tamanho] !== undefined ? precoParaInput(produto.precos[tamanho]) : "",
+        }))
+      : [{ tamanho: "", preco: "" }],
+  );
+
+  const salvar = useMutation({
+    mutationFn: (payload: object) =>
+      produto
+        ? apiFetch(`/produtos/${produto.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        : apiFetch("/produtos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }),
+    onSuccess: () => {
+      onSalvo();
+      onFechar();
+    },
+  });
+
+  const setLinha = (indice: number, campo: keyof LinhaPreco, valor: string) =>
+    setLinhas((atual) =>
+      atual.map((linha, i) => (i === indice ? { ...linha, [campo]: valor } : linha)),
+    );
+
+  const tamanhos = linhas.map((linha) => linha.tamanho.trim());
+  const nomeValido = nome.trim().length > 0;
+  const ordemValida = Number.isInteger(Number.parseInt(ordem, 10));
+  const linhasValidas =
+    linhas.length > 0 &&
+    linhas.every((linha) => linha.tamanho.trim() && parsePrecoReais(linha.preco) !== null);
+  const tamanhosUnicos = new Set(tamanhos).size === tamanhos.length;
+  const podeSalvar = nomeValido && ordemValida && linhasValidas && tamanhosUnicos;
+
+  const renomeando = produto !== null && nome.trim() !== produto.nome;
+
+  const handleSalvar = () => {
+    const precos: Record<string, number> = {};
+    for (const linha of linhas) {
+      precos[linha.tamanho.trim()] = parsePrecoReais(linha.preco)!;
+    }
+    salvar.mutate({
+      nome: nome.trim(),
+      tag: tag.trim() || null,
+      descricao: descricao.trim() || null,
+      ordem: Number.parseInt(ordem, 10),
+      tamanhos,
+      precos,
+    });
+  };
+
+  const erroSalvar =
+    salvar.error instanceof ApiError && salvar.error.detail
+      ? salvar.error.detail
+      : salvar.error
+        ? "Não foi possível salvar o produto."
+        : null;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onFechar()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-none sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="serif">
+            {produto ? `Editar ${produto.nome}` : "Novo produto"}
+          </DialogTitle>
+          <DialogDescription>
+            Preços em reais, por tamanho. O produto aparece na loja quando está ativo e tem preço
+            definido.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="produto-nome">Nome</Label>
+            <Input
+              id="produto-nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              className="rounded-none"
+            />
+            {renomeando && (
+              <p className="text-xs text-muted-foreground">
+                Renomear não altera pedidos antigos, mas itens salvos em carrinhos com o nome
+                anterior deixam de ser reconhecidos, e a foto do produto (mapeada por nome no site)
+                precisa ser reapontada.
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="produto-tag">Tag</Label>
+              <Input
+                id="produto-tag"
+                value={tag}
+                onChange={(e) => setTag(e.target.value)}
+                placeholder="Ex.: Mais vendido"
+                className="rounded-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="produto-ordem">Ordem na vitrine</Label>
+              <Input
+                id="produto-ordem"
+                type="number"
+                value={ordem}
+                onChange={(e) => setOrdem(e.target.value)}
+                className="rounded-none"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="produto-descricao">Descrição</Label>
+            <Textarea
+              id="produto-descricao"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              className="rounded-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tamanhos e preços</Label>
+            {linhas.map((linha, indice) => (
+              <div key={indice} className="flex items-center gap-2">
+                <Input
+                  value={linha.tamanho}
+                  onChange={(e) => setLinha(indice, "tamanho", e.target.value)}
+                  placeholder="250ml"
+                  className="w-28 rounded-none"
+                />
+                <span className="text-sm text-muted-foreground">R$</span>
+                <Input
+                  value={linha.preco}
+                  onChange={(e) => setLinha(indice, "preco", e.target.value)}
+                  placeholder="79,90"
+                  className="w-28 rounded-none"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={linhas.length === 1}
+                  onClick={() => setLinhas((atual) => atual.filter((_, i) => i !== indice))}
+                  className="rounded-none text-xs uppercase tracking-[0.1em]"
+                >
+                  Remover
+                </Button>
+              </div>
+            ))}
+            {!tamanhosUnicos && <p className="text-xs text-destructive">Há tamanhos duplicados.</p>}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLinhas((atual) => [...atual, { tamanho: "", preco: "" }])}
+              className="rounded-none text-xs uppercase tracking-[0.1em]"
+            >
+              Adicionar tamanho
+            </Button>
+          </div>
+
+          {erroSalvar && <p className="text-sm text-destructive">{erroSalvar}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={onFechar}
+            className="rounded-none text-xs uppercase tracking-[0.2em]"
+          >
+            Cancelar
+          </Button>
+          <Button
+            disabled={!podeSalvar || salvar.isPending}
+            onClick={handleSalvar}
+            className="rounded-none text-xs uppercase tracking-[0.2em]"
+          >
+            {salvar.isPending ? "Salvando…" : "Salvar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

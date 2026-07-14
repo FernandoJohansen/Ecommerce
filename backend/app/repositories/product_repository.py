@@ -6,6 +6,32 @@ def get_all_produtos() -> list[dict]:
     return result.data
 
 
+def get_all_produtos_admin() -> list[dict]:
+    """Todos os produtos, inclusive inativos, para o admin."""
+    result = supabase.table("produtos").select("*").order("ordem").order("nome").execute()
+    return result.data
+
+
+def get_produto_by_id(produto_id: str) -> dict | None:
+    result = supabase.table("produtos").select("*").eq("id", produto_id).execute()
+    return result.data[0] if result.data else None
+
+
+def get_produto_by_nome(nome: str) -> dict | None:
+    result = supabase.table("produtos").select("id, nome").eq("nome", nome).execute()
+    return result.data[0] if result.data else None
+
+
+def insert_produto(data: dict) -> dict:
+    result = supabase.table("produtos").insert(data).execute()
+    return result.data[0]
+
+
+def update_produto(produto_id: str, data: dict) -> dict:
+    result = supabase.table("produtos").update(data).eq("id", produto_id).execute()
+    return result.data[0] if result.data else {}
+
+
 def get_all_aromas() -> list[dict]:
     result = supabase.table("aromas").select("*").eq("ativo", True).order("ordem").execute()
     return result.data

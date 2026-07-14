@@ -1,9 +1,13 @@
 PENDÊNCIAS — Sprint Roadmap (atualizado em 14/07/2026)
 ========================================================
-(escopo completo conferido contra o Ecommerce.pdf em 13/07/2026)
+(escopo completo conferido contra o Ecommerce.pdf em 14/07/2026)
 
 Sprint 1 — Infrastructure & Setup: CONCLUÍDO ✔
 (Docker Compose, CI/CD, .env hygiene e README adicionados em 10/07/2026)
+
+Sprint 2 — Database & UI Foundation: CONCLUÍDO ✔
+(schema + migrations, design system Tailwind/shadcn, admin shell,
+estrutura da API e RBAC básico já entregues)
 
 STRAGGLERS DE SPRINTS ANTERIORES
 --------------------------------
@@ -14,11 +18,22 @@ Sprint 3 — Product System
       criar bucket de imagens de produto + endpoint de upload no admin)
   [ ] Busca de produtos na vitrine (escopo "Search" do PDF; hoje só
       existe filtro de status no admin)
+  [ ] Categorias na vitrine (escopo "Categories" do PDF; a API
+      GET /api/categorias existe, mas o frontend não usa categorias
+      em lugar nenhum — sem navegação/filtro por categoria)
 
 Sprint 4 — Cart & CMS: CONCLUÍDO ✔ (estoque em 10/07/2026)
-  [ ] CRUD de produtos no admin (criar/editar/desativar produto e
-      editar preços — hoje o admin só gerencia estoque; preços são
-      editados via SQL). Escopo "Admin CRUD / Product editing" do PDF.
+  [x] CRUD de produtos no admin — 14/07/2026 (escopo "Admin CRUD /
+      Product editing" do PDF): aba "Estoque" virou "Produtos" com
+      criar/editar/desativar/reativar produto e edição de preços por
+      tamanho (em reais na UI, centavos no banco). Backend:
+      GET /api/produtos/admin (inclui inativos), POST /api/produtos e
+      PATCH /api/produtos/{id}, todos staff-only; validações de nome
+      duplicado (409), preço > 0, tamanhos duplicados e preço de
+      tamanho fora da lista (422). Desativar é soft delete (ativo =
+      false, some da vitrine). Obs.: fotos são mapeadas por nome em
+      frontend/src/lib/produto-imagens.ts — produto novo/renomeado
+      fica sem foto até atualizar esse mapa (aviso na UI ao renomear).
 
 Sprint 5 — Checkout System: CONCLUÍDO ✔ — 10/07/2026
   [x] Preços nos produtos (coluna precos JSONB por tamanho, em centavos;
@@ -212,8 +227,6 @@ NOTAS
 - Deploy do frontend: workflow "Deploy Frontend" é manual; requer o
   secret CLOUDFLARE_API_TOKEN no GitHub. Depois do primeiro deploy
   validado, trocar o trigger para push na main.
-- Edição de preços pelo admin: ver item "CRUD de produtos no admin"
-  nos stragglers do Sprint 4.
 - Stack real divergiu do PDF (TanStack Start/Cloudflare em vez de
   Next.js/Vercel; Supabase client em vez de SQLModel/Alembic).
   Detalhes em STACK.md.
