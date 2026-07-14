@@ -97,17 +97,58 @@ Sprint 6 — PIX Integration (sprint atual pelo calendário)
       cola + polling até a confirmação; checkout agora redireciona para ela.
       Sem credenciais Sicredi configuradas, a tela cai no fluxo antigo
       ("entraremos em contato pelo WhatsApp")
-  PENDENTE PARA ATIVAR EM PRODUÇÃO:
-  [ ] Aplicar migrations/2026-07-14_sprint6_pagamentos.sql no banco de
-      produção (psql via session pooler)
-  [ ] Preencher SICREDI_* e PIX_WEBHOOK_URL no backend/.env (ver
-      backend/.env.example) com as credenciais/certificado do Portal do
-      Desenvolvedor Sicredi
-  [ ] Backend público em HTTPS + registrar o webhook no Sicredi via
-      PUT /api/pagamento/webhook (staff); conferir com GET /api/pagamento/webhook
-  [ ] Teste ponta a ponta em homologação (base URL
-      https://api-pix-h.sicredi.com.br; credenciais de homologação são
-      solicitadas por e-mail: integracoes_pix@sicredi.com.br)
+  ROTEIRO DE ATIVAÇÃO EM PRODUÇÃO (passo a passo, na ordem):
+
+  [x] 0. Aplicar migrations/2026-07-14_sprint6_pagamentos.sql no banco de
+         produção — aplicado em 14/07/2026 (tabela pagamentos + RLS conferidos)
+
+  [ ] 1. Baixar os 4 itens no Portal do Desenvolvedor Sicredi
+         (developer.sicredi.com.br > APIs > Catálogo de APIs > APIs de
+         Recebimento > Pix > Certificados e Credenciais, informando
+         cooperativa + conta da Carolina):
+         - Certificado digital .CER (assinado pelo Sicredi)
+         - Chave privada APLICACAO.KEY (menu ⋮ do CSR registrado)
+         - Cadeia completa Sicredi .CER (opcional — SICREDI_CA_PATH)
+         - Client ID + Client Secret: menu ⋮ sobre o arquivo
+           CERTIFICADO_VALIDADO > "Gerar Credenciais" (produção)
+
+  [ ] 2. Converter o certificado para PEM se vier em DER
+         (conferir com `file certificado.cer`; se binário:
+         `openssl x509 -inform der -in certificado.cer -out certificado.pem`).
+         A APLICACAO.KEY normalmente já é PEM (começa com -----BEGIN).
+
+  [ ] 3. Colocar os arquivos no servidor (ex.: backend/certs/ — NUNCA
+         commitar; adicionar ao .gitignore) e preencher no backend/.env:
+         SICREDI_CLIENT_ID, SICREDI_CLIENT_SECRET, SICREDI_CERT_PATH,
+         SICREDI_KEY_PATH, SICREDI_BASE_URL (ver backend/.env.example).
+         PIX_KEY deve ser a MESMA chave PIX cadastrada para a API no
+         Sicredi. Via docker-compose, montar o volume no serviço backend:
+           volumes: [ "./backend/certs:/app/certs:ro" ]
+
+  [ ] 4. Deploy do backend com HTTPS público (exigência do Sicredi para o
+         webhook: porta 443 com certificado de CA pública). Railway/Render
+         atendem de fábrica (imagem backend/Dockerfile; certificados via
+         Secret Files no Render ou volume no Railway). Depois preencher:
+           PIX_WEBHOOK_URL=https://SEU-BACKEND/api/pagamento/webhook
+         (o Sicredi notifica nessa URL + /pix)
+
+  [ ] 5. Validar a criação de cobrança: reiniciar o backend, fazer um
+         pedido de teste no site — a tela de pagamento deve mostrar o QR
+         Code real (prova OAuth + mTLS + cob funcionando)
+
+  [ ] 6. Registrar o webhook (uma vez, com login staff):
+         - Token: POST /api/auth/login {"email": ..., "password": ...}
+         - Registrar: PUT /api/pagamento/webhook (Authorization: Bearer)
+         - Conferir: GET /api/pagamento/webhook
+
+  [ ] 7. Teste ponta a ponta: pedido barato real (Varetas, R$ 8,00), pagar
+         pelo app do banco e ver a página virar "Pagamento confirmado" e o
+         pedido ficar "Pago" no admin (webhook + polling de 5s validados).
+         Alternativa sandbox: homologação com
+         SICREDI_BASE_URL=https://api-pix-h.sicredi.com.br (credenciais de
+         homologação pelo Internet Banking da conta — Outros Serviços >
+         Acesso à API Pix > Gerar Credenciais — ou por e-mail:
+         integracoes_pix@sicredi.com.br)
 
 SPRINTS FUTUROS (escopo do Ecommerce.pdf, nada iniciado)
 --------------------------------------------------------
