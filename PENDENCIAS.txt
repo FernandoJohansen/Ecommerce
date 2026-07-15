@@ -297,7 +297,13 @@ SPRINTS FUTUROS (escopo do Ecommerce.pdf)
 -----------------------------------------
 
 Sprint 8 — NFe (agosto)
-  [ ] Integração eNotas ou Nuvem Fiscal
+  [ ] Integração de emissão de NF-e. ATENÇÃO: a Nuvem Fiscal será DESATIVADA
+      em 31/07/2026 (aviso no site oficial) — descartada. Candidatos
+      (15/07/2026): Focus NFe (Solo R$ 89,90/mês, 100 docs, NFe/NFCe/NFSe,
+      sem setup/fidelidade — favorito para loja de produto físico), eNotas
+      (foco em NFSe/infoprodutos; NF-e de produto e API só nos planos
+      maiores, ~R$ 247/mês). Requisitos em qualquer opção: certificado
+      digital e-CNPJ A1 e Inscrição Estadual da Carolina.
   [x] Validação de CPF — 14/07/2026: checkout coleta CPF obrigatório com
       dígitos verificadores validados no front e no back (Sprint 6b);
       fica em pedidos.cpf
