@@ -265,10 +265,10 @@ Sprint 7 — Shipping (adiantado de agosto)
         pedidos do cliente ainda — Sprint 9).
   ROTEIRO DE ATIVAÇÃO EM PRODUÇÃO (na ordem):
 
-  [ ] 0. Aplicar migrations/2026-07-15_sprint7_frete_rastreio.sql no banco de
-         produção (psql via session pooler, como nas anteriores). ATENÇÃO:
-         sem a migration, a CRIAÇÃO DE PEDIDOS quebra (o insert referencia
-         as colunas novas) — aplicar antes do deploy deste código.
+  [x] 0. Aplicada em 15/07/2026: migrations/2026-07-15_sprint7_frete_rastreio.sql
+         no banco de produção (psql via session pooler). Colunas
+         frete_centavos/frete_servico/frete_prazo_dias/codigo_rastreio
+         verificadas. Deploy do backend liberado.
 
   [ ] 1. Criar/logar a conta Melhor Envio da Carolina e gerar o token:
          melhorenvio.com.br > Integrações > Permissões de acesso > Gerar
