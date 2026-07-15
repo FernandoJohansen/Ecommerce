@@ -235,15 +235,66 @@ Sprint 6b — Cartão de crédito + Boleto via Mercado Pago
          admin. Completar a homologação da integração no painel do MP se
          for exigida (fluxo "Qualidade da integração").
 
+Sprint 7 — Shipping (adiantado de agosto)
+  [x] Implementação completa — 15/07/2026:
+      - Integração Melhor Envio: cliente da API de cotação
+        (backend/app/services/melhorenvio_client.py, Bearer token + User-Agent
+        com contato técnico; produção ou sandbox via MELHOR_ENVIO_BASE_URL) e
+        regras em frete_service.py. Peso do pacote estimado pelo tamanho dos
+        itens (mapa _PESO_TAMANHO_KG), caixa padrão configurável no .env,
+        valor segurado = subtotal dos itens.
+      - Cálculo de frete no checkout: POST /api/frete/cotacao (público);
+        no /checkout, ao completar o CEP as opções aparecem no Resumo
+        (serviço, transportadora, prazo, preço), a mais barata vem
+        pré-selecionada e o total soma o frete. Sem MELHOR_ENVIO_TOKEN o
+        endpoint responde 503 e o checkout segue sem frete, como antes
+        ("combinaremos a entrega pelo WhatsApp").
+      - Opções de frete/entrega: o cliente escolhe o serviço; a escolha vai
+        no pedido como frete.servico_id e o servidor RECOTA o frete na
+        criação (nunca confia no valor do cliente; se a opção sumiu → 422).
+        Pedido guarda frete_centavos/frete_servico/frete_prazo_dias e
+        total_centavos passa a incluir o frete — PIX/cartão/boleto cobram o
+        valor certo sem mudança nos pagamentos.
+      - Frete grátis ≥ R$ 300,00: subtotal de itens (sem frete) atinge
+        FRETE_GRATIS_MINIMO_CENTAVOS → a opção mais barata sai R$ 0,00
+        (frete_gratis=true); o checkout mostra "faltam R$ X" abaixo disso.
+      - Rastreamento: coluna pedidos.codigo_rastreio; PATCH /api/pedidos/{id}
+        agora é parcial (status e/ou codigo_rastreio, staff-only); admin
+        ganhou colunas Frete e Rastreio (input + salvar) e o status
+        "Enviado". Cliente recebe o código pelo WhatsApp (não há página de
+        pedidos do cliente ainda — Sprint 9).
+  ROTEIRO DE ATIVAÇÃO EM PRODUÇÃO (na ordem):
+
+  [ ] 0. Aplicar migrations/2026-07-15_sprint7_frete_rastreio.sql no banco de
+         produção (psql via session pooler, como nas anteriores). ATENÇÃO:
+         sem a migration, a CRIAÇÃO DE PEDIDOS quebra (o insert referencia
+         as colunas novas) — aplicar antes do deploy deste código.
+
+  [ ] 1. Criar/logar a conta Melhor Envio da Carolina e gerar o token:
+         melhorenvio.com.br > Integrações > Permissões de acesso > Gerar
+         novo token (escopo shipping-calculate). Para testar antes, usar
+         sandbox.melhorenvio.com.br + MELHOR_ENVIO_BASE_URL do sandbox.
+
+  [ ] 2. Preencher no backend/.env: MELHOR_ENVIO_TOKEN, MELHOR_ENVIO_CONTATO
+         (e-mail técnico), FRETE_CEP_ORIGEM (CEP de despacho em Ponta
+         Grossa, só dígitos). Conferir caixa padrão e peso estimado
+         (frete_service.py) contra as embalagens reais.
+
+  [ ] 3. Reiniciar o backend e validar: cotação no /checkout com um CEP de
+         outra cidade (opções PAC/SEDEX/Jadlog aparecem), pedido ≥ R$ 300
+         mostra a mais barata "Grátis", e o pedido criado guarda o frete
+         (coluna Frete no admin, total com frete na tela de pagamento).
+
+  [ ] 4. Fluxo de envio: ao postar um pacote, colar o código na coluna
+         Rastreio do admin e marcar o pedido como "Enviado"; enviar o código
+         ao cliente pelo WhatsApp.
+
+  Fora do escopo desta entrega (fica para Sprints 9/10): compra de etiqueta
+  pelo Melhor Envio (hoje só cotação), página de pedidos do cliente com
+  rastreio, e-mail/notificação automática de envio.
+
 SPRINTS FUTUROS (escopo do Ecommerce.pdf)
 -----------------------------------------
-
-Sprint 7 — Shipping (agosto)
-  [ ] Integração Melhor Envio
-  [ ] Cálculo de frete no checkout
-  [ ] Opções de frete/entrega
-  [ ] Regra de frete grátis acima de R$ 300,00
-  [ ] Códigos/estrutura de rastreamento
 
 Sprint 8 — NFe (agosto)
   [ ] Integração eNotas ou Nuvem Fiscal
@@ -258,8 +309,9 @@ Sprint 8 — NFe (agosto)
 Sprint 9 — Order Management (setembro) — parcialmente entregue
   [x] Aba Pedidos no admin com filtro por status (básico)
   [ ] Dashboard de pedidos mais completo (métricas)
-  [ ] Fluxos de status do pedido
-  [ ] Atualizações de envio/rastreamento
+  [ ] Fluxos de status do pedido (status "enviado" já existe desde o Sprint 7)
+  [~] Atualizações de envio/rastreamento (código de rastreio manual no admin
+      entregue no Sprint 7; falta mostrar ao cliente e notificar)
   [ ] Visualização de notas fiscais
 
 Sprint 10 — Operational Hardening (setembro)

@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +71,20 @@ type ItemCarrinho = {
 type PedidoCriado = {
   id: string;
   total_centavos: number;
+};
+
+type FreteOpcao = {
+  servico_id: number;
+  nome: string;
+  transportadora: string;
+  valor_centavos: number;
+  prazo_dias: number | null;
+  frete_gratis: boolean;
+};
+
+type CotacaoFrete = {
+  opcoes: FreteOpcao[];
+  frete_gratis_minimo_centavos: number;
 };
 
 const formatarCep = (v: string) => {
@@ -164,6 +178,7 @@ function CheckoutPage() {
   const [telefone, setTelefone] = useState("");
   const [cpf, setCpf] = useState("");
   const [cep, setCep] = useState("");
+  const [freteId, setFreteId] = useState<number | null>(null);
   const [rua, setRua] = useState("");
   const [numero, setNumero] = useState("");
   const [complemento, setComplemento] = useState("");
@@ -172,6 +187,52 @@ function CheckoutPage() {
   const [estado, setEstado] = useState("PR");
   const [obs, setObs] = useState("");
   const [erros, setErros] = useState<Record<string, string>>({});
+
+  // Cotação de frete: dispara quando o CEP fica completo e os itens têm
+  // preço. 503 = integração desligada → o pedido segue sem frete (entrega
+  // combinada pelo WhatsApp), como antes do Sprint 7.
+  const cepDigitos = cep.replace(/\D/g, "");
+  const itensFrete = itens.map((item) => ({
+    produto_nome: item.produto_nome,
+    tamanho: item.tamanho,
+    refil: item.refil,
+    quantidade: item.quantidade,
+  }));
+  const chaveItens = JSON.stringify(itensFrete);
+  const cotacao = useQuery<CotacaoFrete>({
+    queryKey: ["frete", cepDigitos, chaveItens],
+    queryFn: () =>
+      apiFetch("/frete/cotacao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cep: cepDigitos, itens: itensFrete }),
+      }),
+    enabled:
+      pronto &&
+      cepDigitos.length === 8 &&
+      itens.length > 0 &&
+      !carregandoPrecos &&
+      !temItemSemPreco,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const freteIndisponivel = cotacao.error instanceof ApiError && cotacao.error.status === 503;
+  const opcoesFrete = useMemo(() => cotacao.data?.opcoes ?? [], [cotacao.data]);
+  const freteSelecionado = opcoesFrete.find((o) => o.servico_id === freteId) ?? null;
+
+  // Pré-seleciona a opção mais barata (primeira) quando a cotação muda e a
+  // escolha anterior não existe mais
+  useEffect(() => {
+    if (opcoesFrete.length > 0 && !opcoesFrete.some((o) => o.servico_id === freteId)) {
+      setFreteId(opcoesFrete[0].servico_id);
+    }
+  }, [opcoesFrete, freteId]);
+
+  const totalComFrete = total + (freteSelecionado?.valor_centavos ?? 0);
+  // Com a cotação carregada, o pedido só sai com uma opção escolhida; sem
+  // cotação (CEP incompleto/erro), o backend decide — se o frete estiver
+  // ativo por lá, devolve o erro real
+  const aguardandoFrete = cotacao.isFetching || (opcoesFrete.length > 0 && !freteSelecionado);
 
   const validar = () => {
     const novos: Record<string, string> = {};
@@ -203,6 +264,7 @@ function CheckoutPage() {
       estado,
     },
     observacoes: obs.trim() || null,
+    frete: freteSelecionado ? { servico_id: freteSelecionado.servico_id } : null,
   });
 
   const enviar = useMutation({
@@ -382,13 +444,100 @@ function CheckoutPage() {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
-                  <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Total
-                  </span>
-                  <span className="serif text-2xl">
-                    {carregandoPrecos || temItemSemPreco ? "—" : formatarPreco(total)}
-                  </span>
+                <div className="mt-6 border-t border-border pt-6">
+                  <p className="mb-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    Frete
+                  </p>
+                  {cepDigitos.length !== 8 && (
+                    <p className="text-sm text-muted-foreground">
+                      Informe o CEP para calcular o frete.
+                    </p>
+                  )}
+                  {cotacao.isFetching && (
+                    <p className="text-sm text-muted-foreground">Calculando frete…</p>
+                  )}
+                  {freteIndisponivel && (
+                    <p className="text-sm text-muted-foreground">
+                      Cálculo de frete indisponível no momento — combinaremos a entrega pelo
+                      WhatsApp.
+                    </p>
+                  )}
+                  {cotacao.isError && !freteIndisponivel && (
+                    <p className="text-sm text-destructive">
+                      {cotacao.error instanceof ApiError && cotacao.error.detail
+                        ? cotacao.error.detail
+                        : "Não foi possível calcular o frete. Confira o CEP."}
+                    </p>
+                  )}
+                  {!cotacao.isFetching && opcoesFrete.length > 0 && (
+                    <div className="space-y-2">
+                      {opcoesFrete.map((opcao) => (
+                        <button
+                          key={opcao.servico_id}
+                          type="button"
+                          onClick={() => setFreteId(opcao.servico_id)}
+                          className={`flex w-full items-center justify-between border px-3 py-2 text-left text-sm ${
+                            opcao.servico_id === freteId
+                              ? "border-foreground"
+                              : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          <span>
+                            {opcao.nome} · {opcao.transportadora}
+                            {opcao.prazo_dias != null && (
+                              <span className="block text-xs text-muted-foreground">
+                                {opcao.prazo_dias === 1
+                                  ? "até 1 dia útil"
+                                  : `até ${opcao.prazo_dias} dias úteis`}
+                              </span>
+                            )}
+                          </span>
+                          <span>
+                            {opcao.valor_centavos === 0
+                              ? "Grátis"
+                              : formatarPreco(opcao.valor_centavos)}
+                          </span>
+                        </button>
+                      ))}
+                      {cotacao.data &&
+                        total < cotacao.data.frete_gratis_minimo_centavos &&
+                        !carregandoPrecos &&
+                        !temItemSemPreco && (
+                          <p className="text-xs text-muted-foreground">
+                            Faltam{" "}
+                            {formatarPreco(cotacao.data.frete_gratis_minimo_centavos - total)} em
+                            produtos para ganhar frete grátis.
+                          </p>
+                        )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 space-y-2 border-t border-border pt-6">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Produtos</span>
+                    <span>{carregandoPrecos || temItemSemPreco ? "—" : formatarPreco(total)}</span>
+                  </div>
+                  {freteSelecionado && (
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Frete</span>
+                      <span>
+                        {freteSelecionado.valor_centavos === 0
+                          ? "Grátis"
+                          : formatarPreco(freteSelecionado.valor_centavos)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Total
+                    </span>
+                    <span className="serif text-2xl">
+                      {carregandoPrecos || temItemSemPreco || aguardandoFrete
+                        ? "—"
+                        : formatarPreco(totalComFrete)}
+                    </span>
+                  </div>
                 </div>
 
                 {temItemSemPreco && (
@@ -410,7 +559,9 @@ function CheckoutPage() {
 
                 <Button
                   onClick={submeter}
-                  disabled={enviar.isPending || carregandoPrecos || temItemSemPreco}
+                  disabled={
+                    enviar.isPending || carregandoPrecos || temItemSemPreco || aguardandoFrete
+                  }
                   className="mt-6 w-full rounded-none bg-foreground py-6 text-xs uppercase tracking-[0.3em] text-background hover:bg-foreground/90 disabled:opacity-50"
                 >
                   {enviar.isPending ? "Confirmando…" : "Confirmar pedido"}

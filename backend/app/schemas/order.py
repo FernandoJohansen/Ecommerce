@@ -1,6 +1,8 @@
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.schemas.frete import FreteEscolhido
 
 UFS = {
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -51,6 +53,9 @@ class DadosCliente(BaseModel):
     cpf: str
     endereco: EnderecoEntrega
     observacoes: str | None = Field(default=None, max_length=500)
+    # Opção de frete escolhida no checkout; recotada no servidor. None quando
+    # a integração de frete está desligada (entrega combinada pelo WhatsApp).
+    frete: FreteEscolhido | None = None
 
     @field_validator("nome_cliente")
     @classmethod
@@ -88,7 +93,17 @@ class PedidoCreate(DadosCliente):
 
 
 class PedidoUpdate(BaseModel):
-    status: str
+    """Atualização parcial pelo admin: só os campos enviados são gravados."""
+
+    status: str | None = None
+    # "" limpa o código (volta a NULL no banco)
+    codigo_rastreio: str | None = Field(default=None, max_length=100)
+
+    @model_validator(mode="after")
+    def exige_algum_campo(self) -> "PedidoUpdate":
+        if not self.model_fields_set:
+            raise ValueError("Informe ao menos um campo para atualizar")
+        return self
 
 
 class PedidoItemResponse(BaseModel):
@@ -116,6 +131,10 @@ class PedidoResponse(BaseModel):
     cpf: str | None = None
     observacoes: str | None = None
     total_centavos: int = 0
+    frete_centavos: int = 0
+    frete_servico: str | None = None
+    frete_prazo_dias: int | None = None
+    codigo_rastreio: str | None = None
     status: str
     created_at: str | None = None
     itens: list[PedidoItemResponse] = []

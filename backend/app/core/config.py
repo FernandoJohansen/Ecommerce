@@ -38,6 +38,23 @@ MERCADO_PAGO_WEBHOOK_SECRET: str = os.getenv("MERCADO_PAGO_WEBHOOK_SECRET", "")
 MERCADO_PAGO_WEBHOOK_URL: str = os.getenv("MERCADO_PAGO_WEBHOOK_URL", "")
 MERCADO_PAGO_MAX_PARCELAS: int = int(os.getenv("MERCADO_PAGO_MAX_PARCELAS", "12"))
 MERCADO_PAGO_ENABLED: bool = bool(MERCADO_PAGO_ACCESS_TOKEN)
+
+# Melhor Envio (cálculo de frete). Sem token, POST /api/frete/cotacao responde
+# 503 e o checkout segue sem frete (frete combinado pelo WhatsApp).
+MELHOR_ENVIO_BASE_URL: str = os.getenv("MELHOR_ENVIO_BASE_URL", "https://melhorenvio.com.br")
+MELHOR_ENVIO_TOKEN: str = os.getenv("MELHOR_ENVIO_TOKEN", "")
+# E-mail de contato técnico exigido pelo Melhor Envio no header User-Agent
+MELHOR_ENVIO_CONTATO: str = os.getenv("MELHOR_ENVIO_CONTATO", "")
+# CEP de onde os pedidos são despachados (só dígitos) — Ponta Grossa-PR
+FRETE_CEP_ORIGEM: str = os.getenv("FRETE_CEP_ORIGEM", "")
+# Pedidos com subtotal de itens a partir deste valor ganham a opção mais
+# barata de frete de graça (R$ 300,00)
+FRETE_GRATIS_MINIMO_CENTAVOS: int = int(os.getenv("FRETE_GRATIS_MINIMO_CENTAVOS", "30000"))
+# Caixa padrão usada na cotação (cm); o peso vem dos itens do pedido
+FRETE_PACOTE_ALTURA_CM: int = int(os.getenv("FRETE_PACOTE_ALTURA_CM", "15"))
+FRETE_PACOTE_LARGURA_CM: int = int(os.getenv("FRETE_PACOTE_LARGURA_CM", "20"))
+FRETE_PACOTE_COMPRIMENTO_CM: int = int(os.getenv("FRETE_PACOTE_COMPRIMENTO_CM", "20"))
+MELHOR_ENVIO_ENABLED: bool = bool(MELHOR_ENVIO_TOKEN and FRETE_CEP_ORIGEM)
 ADMIN_EMAILS: set[str] = {
     email.strip().lower() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip()
 }

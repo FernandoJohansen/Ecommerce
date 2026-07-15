@@ -92,6 +92,7 @@ def checkout_cart(user, dados: CartCheckoutRequest) -> dict:
         endereco=dados.endereco.model_dump(),
         observacoes=dados.observacoes,
         user_id=user.id,
+        frete_servico_id=dados.frete.servico_id if dados.frete else None,
     )
     try:
         clear_items(user.id)

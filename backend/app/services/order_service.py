@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 
+from app.core.config import MELHOR_ENVIO_ENABLED
 from app.repositories.order_repository import (
     delete_pedido,
     get_all_pedidos,
@@ -8,6 +9,7 @@ from app.repositories.order_repository import (
     update_pedido,
 )
 from app.schemas.order import PedidoCreate, PedidoUpdate
+from app.services.frete_service import frete_do_pedido
 from app.services.product_service import (
     REFIL_PRODUTO,
     baixar_estoque,
@@ -27,6 +29,7 @@ def create_pedido(pedido: PedidoCreate, user_id: str | None = None) -> dict:
         endereco=pedido.endereco.model_dump(),
         observacoes=pedido.observacoes,
         user_id=user_id,
+        frete_servico_id=pedido.frete.servico_id if pedido.frete else None,
     )
 
 
@@ -38,6 +41,7 @@ def criar_pedido(
     endereco: dict,
     observacoes: str | None,
     user_id: str | None = None,
+    frete_servico_id: int | None = None,
 ) -> dict:
     """Valida itens, calcula preços/total no servidor, reserva estoque e grava
     o pedido (cabeçalho + itens). Usado pelo POST /pedidos e pelo checkout do
@@ -64,6 +68,21 @@ def criar_pedido(
                 "subtotal_centavos": subtotal,
             }
         )
+
+    # Frete: recotado no servidor (falha aqui aborta antes de mexer no
+    # estoque). Com a integração desligada, o pedido segue sem frete e a
+    # entrega é combinada pelo WhatsApp, como antes do Sprint 7.
+    frete_centavos = 0
+    frete_servico = None
+    frete_prazo_dias = None
+    if MELHOR_ENVIO_ENABLED:
+        if frete_servico_id is None:
+            raise HTTPException(status_code=422, detail="Escolha uma opção de frete")
+        opcao = frete_do_pedido(endereco["cep"], itens, frete_servico_id)
+        frete_centavos = opcao["valor_centavos"]
+        frete_servico = f"{opcao['nome']} — {opcao['transportadora']}"
+        frete_prazo_dias = opcao["prazo_dias"]
+    total += frete_centavos
 
     # Reserve stock for the whole order before writing anything; if one
     # product falls short, put back what was already taken and abort.
@@ -100,6 +119,9 @@ def criar_pedido(
                 **endereco,
                 "observacoes": observacoes,
                 "total_centavos": total,
+                "frete_centavos": frete_centavos,
+                "frete_servico": frete_servico,
+                "frete_prazo_dias": frete_prazo_dias,
             }
         )
     except Exception:
@@ -128,7 +150,11 @@ def list_pedidos() -> list[dict]:
 
 
 def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
-    result = update_pedido(pedido_id, pedido.model_dump())
+    data = pedido.model_dump(exclude_unset=True)
+    if "codigo_rastreio" in data:
+        # "" limpa o código; espaços acidentais não viram código válido
+        data["codigo_rastreio"] = (data["codigo_rastreio"] or "").strip() or None
+    result = update_pedido(pedido_id, data)
     if not result:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
     return result

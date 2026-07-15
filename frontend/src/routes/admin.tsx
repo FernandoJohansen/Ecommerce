@@ -72,6 +72,10 @@ type Pedido = {
   estado: string | null;
   observacoes: string | null;
   total_centavos: number;
+  frete_centavos: number;
+  frete_servico: string | null;
+  frete_prazo_dias: number | null;
+  codigo_rastreio: string | null;
   status: string;
   created_at: string;
   itens: PedidoItem[];
@@ -88,6 +92,7 @@ const STATUS = {
   novo: "Novo",
   em_andamento: "Em andamento",
   pago: "Pago",
+  enviado: "Enviado",
   concluido: "Concluído",
   cancelado: "Cancelado",
 } as const;
@@ -177,6 +182,16 @@ function AdminPage() {
 
   const excluirPedido = useMutation({
     mutationFn: (id: string) => apiFetch(`/pedidos/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pedidos"] }),
+  });
+
+  const salvarRastreio = useMutation({
+    mutationFn: ({ id, codigo }: { id: string; codigo: string }) =>
+      apiFetch(`/pedidos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo_rastreio: codigo }),
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pedidos"] }),
   });
 
@@ -482,9 +497,11 @@ function AdminPage() {
                       <TableHead>Data</TableHead>
                       <TableHead>Itens</TableHead>
                       <TableHead>Total</TableHead>
+                      <TableHead>Frete</TableHead>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Telefone</TableHead>
                       <TableHead>Entrega</TableHead>
+                      <TableHead>Rastreio</TableHead>
                       <TableHead>Observações</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -507,12 +524,40 @@ function AdminPage() {
                         <TableCell className="whitespace-nowrap">
                           {formatarPreco(pedido.total_centavos)}
                         </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {pedido.frete_servico ? (
+                            <>
+                              {pedido.frete_servico}
+                              <span className="block text-xs text-muted-foreground">
+                                {pedido.frete_centavos === 0
+                                  ? "Grátis"
+                                  : formatarPreco(pedido.frete_centavos)}
+                                {pedido.frete_prazo_dias != null
+                                  ? ` · até ${pedido.frete_prazo_dias}d`
+                                  : ""}
+                              </span>
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
                         <TableCell>{pedido.nome_cliente ?? "—"}</TableCell>
                         <TableCell className="whitespace-nowrap">
                           {pedido.telefone ?? "—"}
                         </TableCell>
                         <TableCell className="max-w-[280px]">
                           {enderecoResumo(pedido) ?? "—"}
+                        </TableCell>
+                        <TableCell>
+                          <RastreioCell
+                            // Reinicia o input quando o valor salvo muda
+                            key={`${pedido.id}-${pedido.codigo_rastreio ?? ""}`}
+                            codigo={pedido.codigo_rastreio}
+                            salvando={
+                              salvarRastreio.isPending && salvarRastreio.variables?.id === pedido.id
+                            }
+                            onSalvar={(codigo) => salvarRastreio.mutate({ id: pedido.id, codigo })}
+                          />
                         </TableCell>
                         <TableCell>{pedido.observacoes ?? "—"}</TableCell>
                         <TableCell>
@@ -579,6 +624,39 @@ function AdminPage() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function RastreioCell({
+  codigo,
+  salvando,
+  onSalvar,
+}: {
+  codigo: string | null;
+  salvando: boolean;
+  onSalvar: (codigo: string) => void;
+}) {
+  const [valor, setValor] = useState(codigo ?? "");
+  const alterado = valor.trim() !== (codigo ?? "");
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        placeholder="Código"
+        className="h-8 w-[150px] rounded-none text-xs"
+      />
+      {alterado && (
+        <Button
+          size="sm"
+          disabled={salvando}
+          onClick={() => onSalvar(valor.trim())}
+          className="rounded-none text-xs uppercase tracking-[0.1em]"
+        >
+          {salvando ? "…" : "Salvar"}
+        </Button>
+      )}
     </div>
   );
 }

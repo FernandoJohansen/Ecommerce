@@ -48,7 +48,14 @@ CREATE TABLE pedidos (
   -- CPF do cliente, só dígitos (exigido pelo Mercado Pago p/ boleto e cartão)
   cpf             TEXT,
   observacoes     TEXT,
+  -- total_centavos = itens + frete_centavos (frete recotado no servidor)
   total_centavos  INTEGER     NOT NULL DEFAULT 0 CHECK (total_centavos >= 0),
+  frete_centavos  INTEGER     NOT NULL DEFAULT 0 CHECK (frete_centavos >= 0),
+  -- Ex.: "PAC — Correios"; NULL quando a integração de frete está desligada
+  frete_servico   TEXT,
+  frete_prazo_dias INTEGER,
+  -- Preenchido manualmente no admin quando o pedido é postado
+  codigo_rastreio TEXT,
   status          TEXT        DEFAULT 'novo',
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
@@ -100,6 +107,9 @@ CREATE TABLE pagamentos (
 );
 
 CREATE INDEX pagamentos_pedido_idx ON pagamentos (pedido_id);
+
+-- Migration for databases created before Sprint 7 (Shipping/Melhor Envio):
+--   see migrations/2026-07-15_sprint7_frete_rastreio.sql
 
 -- Migration for databases created before the Sprint 3 stragglers (product
 -- image uploads): see migrations/2026-07-14_sprint3_produtos_imagens.sql
