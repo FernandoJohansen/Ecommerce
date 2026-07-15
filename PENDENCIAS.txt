@@ -31,10 +31,9 @@ Sprint 3 — Product System: CONCLUÍDO ✔ — 14/07/2026
       GET /api/categorias (derivadas da coluna "tag" dos produtos).
       A vitrine inteira agora é renderizada do catálogo da API (inclui
       Varetas, antes de fora do grid; produto sem foto ganha placeholder).
-  [ ] ATIVAÇÃO: aplicar migrations/2026-07-14_sprint3_produtos_imagens.sql
-      no banco de produção (coluna imagens + bucket "produtos"). Sem ela o
-      site segue funcionando com as fotos embutidas, mas o upload de fotos
-      no admin falha.
+  [x] ATIVAÇÃO: migrations/2026-07-14_sprint3_produtos_imagens.sql aplicada
+      no banco de produção em 15/07/2026 (coluna imagens + bucket
+      "produtos"). Upload de fotos no admin liberado.
 
 Sprint 4 — Cart & CMS: CONCLUÍDO ✔ (estoque em 10/07/2026)
   [x] CRUD de produtos no admin — 14/07/2026 (escopo "Admin CRUD /
@@ -203,10 +202,10 @@ Sprint 6b — Cartão de crédito + Boleto via Mercado Pago
   atualiza o pagamento (status refunded/charged_back); tratar manualmente.
   ROTEIRO DE ATIVAÇÃO EM PRODUÇÃO (na ordem):
 
-  [ ] 0. Aplicar migrations/2026-07-14_sprint7_mercado_pago.sql no banco de
-         produção (psql via session pooler). Sem ela o webhook e as rotas
-         /cartao, /boleto e /resumo quebram (coluna mp_payment_id/cpf não
-         existe). O restante do site segue funcionando.
+  [x] 0. Aplicada em 15/07/2026: migrations/2026-07-14_sprint7_mercado_pago.sql
+         no banco de produção (psql via session pooler). Colunas
+         metodo/mp_payment_id/detalhes, txid nullable e pedidos.cpf
+         verificadas.
 
   [ ] 1. Criar a conta/aplicação no Mercado Pago (conta vendedor da
          Carolina): mercadopago.com.br/developers > Suas integrações >
