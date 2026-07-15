@@ -24,7 +24,7 @@ type ResumoPedido = {
   pedido_id: string;
   total_centavos: number;
   status: string;
-  tem_cpf: boolean;
+  tem_documento: boolean;
 };
 
 type MetodoPagamento = "pix" | "cartao" | "boleto";
@@ -162,7 +162,7 @@ function PagamentoPage() {
 
               {metodo === "boleto" &&
                 (resumo ? (
-                  <BoletoView pedidoId={pedidoId} temCpf={resumo.tem_cpf} />
+                  <BoletoView pedidoId={pedidoId} temDocumento={resumo.tem_documento} />
                 ) : (
                   <p className="text-sm text-muted-foreground">Carregando…</p>
                 ))}

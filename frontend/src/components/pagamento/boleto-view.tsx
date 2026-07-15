@@ -9,7 +9,7 @@ import { PagamentoConfirmado, type PagamentoMp } from "./comum";
 
 type Props = {
   pedidoId: string;
-  temCpf: boolean;
+  temDocumento: boolean;
 };
 
 const formatarVencimento = (iso: string | null) => {
@@ -20,7 +20,7 @@ const formatarVencimento = (iso: string | null) => {
     : data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
-export function BoletoView({ pedidoId, temCpf }: Props) {
+export function BoletoView({ pedidoId, temDocumento }: Props) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [erroEmail, setErroEmail] = useState<string | null>(null);
@@ -53,10 +53,10 @@ export function BoletoView({ pedidoId, temCpf }: Props) {
     }
   }, [aprovado, pedidoId, queryClient]);
 
-  if (!temCpf) {
+  if (!temDocumento) {
     return (
       <p className="text-sm text-muted-foreground">
-        Este pedido não tem CPF cadastrado, obrigatório para boleto. Pague por PIX ou refaça o
+        Este pedido não tem CPF/CNPJ cadastrado, obrigatório para boleto. Pague por PIX ou refaça o
         pedido.
       </p>
     );

@@ -100,12 +100,16 @@ const formatarTelefone = (v: string) => {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 };
 
-const formatarCpf = (v: string) => {
-  const d = v.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+// Máscara de CPF até 11 dígitos; com o 12º em diante vira máscara de CNPJ
+const formatarCpfCnpj = (v: string) => {
+  const d = v.replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 11) {
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  }
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 };
 
 // Mesma regra do backend: 11 dígitos, não todos iguais, dígitos verificadores
@@ -119,6 +123,25 @@ const validarCpf = (digitos: string) => {
   }
   return true;
 };
+
+// Mesma regra do backend: 14 dígitos, não todos iguais, dígitos verificadores
+const validarCnpj = (digitos: string) => {
+  if (digitos.length !== 14 || /^(\d)\1{13}$/.test(digitos)) return false;
+  const tabelas = [
+    [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+    [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+  ];
+  for (const pesos of tabelas) {
+    const soma = pesos.reduce((acc, peso, i) => acc + Number(digitos[i]) * peso, 0);
+    let dv = 11 - (soma % 11);
+    if (dv >= 10) dv = 0;
+    if (dv !== Number(digitos[pesos.length])) return false;
+  }
+  return true;
+};
+
+const validarCpfCnpj = (digitos: string) =>
+  digitos.length === 14 ? validarCnpj(digitos) : validarCpf(digitos);
 
 function CheckoutPage() {
   const navigate = useNavigate();
@@ -176,7 +199,7 @@ function CheckoutPage() {
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [cpf, setCpf] = useState("");
+  const [cpfCnpj, setCpfCnpj] = useState("");
   const [cep, setCep] = useState("");
   const [freteId, setFreteId] = useState<number | null>(null);
   const [rua, setRua] = useState("");
@@ -239,7 +262,7 @@ function CheckoutPage() {
     if (nome.trim().length < 2) novos.nome = "Informe o nome completo";
     const telDigitos = telefone.replace(/\D/g, "");
     if (telDigitos.length < 10 || telDigitos.length > 11) novos.telefone = "Informe DDD + número";
-    if (!validarCpf(cpf.replace(/\D/g, ""))) novos.cpf = "CPF inválido";
+    if (!validarCpfCnpj(cpfCnpj.replace(/\D/g, ""))) novos.cpf_cnpj = "CPF/CNPJ inválido";
     if (cep.replace(/\D/g, "").length !== 8) novos.cep = "CEP deve ter 8 dígitos";
     if (rua.trim().length < 2) novos.rua = "Informe a rua";
     if (!numero.trim()) novos.numero = "Informe o número";
@@ -253,7 +276,7 @@ function CheckoutPage() {
   const dadosCliente = () => ({
     nome_cliente: nome.trim(),
     telefone: telefone.replace(/\D/g, ""),
-    cpf: cpf.replace(/\D/g, ""),
+    cpf_cnpj: cpfCnpj.replace(/\D/g, ""),
     endereco: {
       cep: cep.replace(/\D/g, ""),
       rua: rua.trim(),
@@ -357,7 +380,7 @@ function CheckoutPage() {
                 )}
               </div>
               <div className="grid gap-6 sm:grid-cols-2">
-                {campo("CPF", cpf, (v) => setCpf(formatarCpf(v)), "cpf", {
+                {campo("CPF ou CNPJ", cpfCnpj, (v) => setCpfCnpj(formatarCpfCnpj(v)), "cpf_cnpj", {
                   placeholder: "000.000.000-00",
                 })}
               </div>

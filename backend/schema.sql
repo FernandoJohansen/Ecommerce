@@ -45,8 +45,9 @@ CREATE TABLE pedidos (
   bairro          TEXT,
   cidade          TEXT,
   estado          TEXT,
-  -- CPF do cliente, só dígitos (exigido pelo Mercado Pago p/ boleto e cartão)
-  cpf             TEXT,
+  -- CPF (11 dígitos) ou CNPJ (14 dígitos) do cliente, só dígitos — o tipo é
+  -- derivado do tamanho (exigido pelo Mercado Pago p/ boleto e cartão)
+  cpf_cnpj        TEXT,
   observacoes     TEXT,
   -- total_centavos = itens + frete_centavos (frete recotado no servidor)
   total_centavos  INTEGER     NOT NULL DEFAULT 0 CHECK (total_centavos >= 0),

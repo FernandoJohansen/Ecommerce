@@ -301,7 +301,13 @@ Sprint 8 — NFe (agosto)
   [x] Validação de CPF — 14/07/2026: checkout coleta CPF obrigatório com
       dígitos verificadores validados no front e no back (Sprint 6b);
       fica em pedidos.cpf
-  [ ] Suporte a CNPJ (compra como pessoa jurídica; hoje só CPF)
+  [x] Suporte a CNPJ — 15/07/2026: campo do checkout virou "CPF ou CNPJ"
+      (máscara e dígitos verificadores dos dois no front e no back); coluna
+      pedidos.cpf renomeada para cpf_cnpj (migration
+      2026-07-15_sprint8_cpf_cnpj.sql, APLICADA em produção em 15/07/2026 —
+      aplicar antes do deploy deste código). Cartão/boleto no Mercado Pago
+      enviam identification CPF ou CNPJ conforme o tamanho do documento;
+      resumo de pagamento expõe tem_documento (antes tem_cpf).
   [ ] Geração de nota fiscal
   [ ] Armazenamento de DANFE/XML/PDF
   [ ] Fluxos fiscais

@@ -38,7 +38,7 @@ def get_metodos():
     return listar_metodos()
 
 
-# Só total/status/tem_cpf — a tela de pagamento (inclusive de convidado)
+# Só total/status/tem_documento — a tela de pagamento (inclusive de convidado)
 # precisa do valor antes de criar o pagamento
 @router.get("/resumo/{pedido_id}", response_model=ResumoPedidoPagamento)
 def get_resumo(pedido_id: str):

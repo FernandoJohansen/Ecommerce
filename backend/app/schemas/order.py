@@ -10,6 +10,34 @@ UFS = {
 }
 
 
+def _cpf_valido(digitos: str) -> bool:
+    if digitos == digitos[0] * 11:
+        return False
+    # Dígitos verificadores (módulo 11)
+    for tamanho in (9, 10):
+        soma = sum(int(d) * peso for d, peso in zip(digitos, range(tamanho + 1, 1, -1)))
+        dv = (soma * 10) % 11 % 10
+        if dv != int(digitos[tamanho]):
+            return False
+    return True
+
+
+def _cnpj_valido(digitos: str) -> bool:
+    if digitos == digitos[0] * 14:
+        return False
+    for pesos in (
+        [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+        [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+    ):
+        soma = sum(int(d) * peso for d, peso in zip(digitos, pesos))
+        dv = 11 - soma % 11
+        if dv >= 10:
+            dv = 0
+        if dv != int(digitos[len(pesos)]):
+            return False
+    return True
+
+
 class EnderecoEntrega(BaseModel):
     cep: str
     rua: str = Field(min_length=2, max_length=200)
@@ -49,8 +77,9 @@ class DadosCliente(BaseModel):
 
     nome_cliente: str = Field(min_length=2, max_length=120)
     telefone: str
-    # Exigido pelo Mercado Pago para boleto e antifraude de cartão
-    cpf: str
+    # Exigido pelo Mercado Pago para boleto e antifraude de cartão.
+    # CPF (11 dígitos) ou CNPJ (14 dígitos, compra como pessoa jurídica).
+    cpf_cnpj: str
     endereco: EnderecoEntrega
     observacoes: str | None = Field(default=None, max_length=500)
     # Opção de frete escolhida no checkout; recotada no servidor. None quando
@@ -73,18 +102,18 @@ class DadosCliente(BaseModel):
             raise ValueError("Telefone deve ter DDD + número (10 ou 11 dígitos)")
         return digitos
 
-    @field_validator("cpf")
+    @field_validator("cpf_cnpj")
     @classmethod
-    def valida_cpf(cls, v: str) -> str:
+    def valida_cpf_cnpj(cls, v: str) -> str:
         digitos = re.sub(r"\D", "", v)
-        if len(digitos) != 11 or digitos == digitos[0] * 11:
-            raise ValueError("CPF inválido")
-        # Dígitos verificadores (módulo 11)
-        for tamanho in (9, 10):
-            soma = sum(int(d) * peso for d, peso in zip(digitos, range(tamanho + 1, 1, -1)))
-            dv = (soma * 10) % 11 % 10
-            if dv != int(digitos[tamanho]):
+        if len(digitos) == 11:
+            if not _cpf_valido(digitos):
                 raise ValueError("CPF inválido")
+        elif len(digitos) == 14:
+            if not _cnpj_valido(digitos):
+                raise ValueError("CNPJ inválido")
+        else:
+            raise ValueError("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos)")
         return digitos
 
 
@@ -128,7 +157,7 @@ class PedidoResponse(BaseModel):
     bairro: str | None = None
     cidade: str | None = None
     estado: str | None = None
-    cpf: str | None = None
+    cpf_cnpj: str | None = None
     observacoes: str | None = None
     total_centavos: int = 0
     frete_centavos: int = 0

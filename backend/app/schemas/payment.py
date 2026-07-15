@@ -44,7 +44,8 @@ class ResumoPedidoPagamento(BaseModel):
     pedido_id: str
     total_centavos: int
     status: str
-    tem_cpf: bool
+    # True quando o pedido tem CPF/CNPJ (obrigatório para boleto e cartão)
+    tem_documento: bool
 
 
 class PagamentoCartaoCreate(BaseModel):

@@ -220,7 +220,7 @@ def resumo_pedido_para_pagamento(pedido_id: str) -> dict:
         "pedido_id": pedido["id"],
         "total_centavos": pedido["total_centavos"],
         "status": pedido["status"],
-        "tem_cpf": bool(pedido.get("cpf")),
+        "tem_documento": bool(pedido.get("cpf_cnpj")),
     }
 
 
@@ -292,6 +292,12 @@ def _pedido_ja_aprovado(pedido_id: str) -> bool:
     return any(_situacao(p) == "aprovado" for p in get_pagamentos_by_pedido(pedido_id))
 
 
+def _identificacao_mp(pedido: dict) -> dict:
+    # CPF (11 dígitos) ou CNPJ (14) — o tipo vai junto na identification do MP
+    documento = pedido["cpf_cnpj"]
+    return {"type": "CNPJ" if len(documento) == 14 else "CPF", "number": documento}
+
+
 def criar_pagamento_cartao(dados: PagamentoCartaoCreate) -> dict:
     """Cada submit do Brick é uma tentativa nova (token novo, pagamento novo no
     MP) — recusas ficam no histórico e nunca bloqueiam nova tentativa."""
@@ -299,10 +305,10 @@ def criar_pagamento_cartao(dados: PagamentoCartaoCreate) -> dict:
     pedido = _validar_pedido_para_pagamento(dados.pedido_id)
     if _pedido_ja_aprovado(dados.pedido_id):
         raise HTTPException(status_code=409, detail="Este pedido já está pago")
-    if not pedido.get("cpf"):
+    if not pedido.get("cpf_cnpj"):
         raise HTTPException(
             status_code=422,
-            detail="Pedido sem CPF cadastrado; finalize pelo PIX ou refaça o pedido.",
+            detail="Pedido sem CPF/CNPJ cadastrado; finalize pelo PIX ou refaça o pedido.",
         )
 
     payload = {
@@ -313,7 +319,7 @@ def criar_pagamento_cartao(dados: PagamentoCartaoCreate) -> dict:
         "payment_method_id": dados.payment_method_id,
         "payer": {
             "email": dados.payer_email,
-            "identification": {"type": "CPF", "number": pedido["cpf"]},
+            "identification": _identificacao_mp(pedido),
         },
         "external_reference": dados.pedido_id,
         "description": "Pedido Carolina Viapiana",
@@ -366,10 +372,10 @@ def criar_pagamento_boleto(dados: PagamentoBoletoCreate) -> dict:
     pedido = _validar_pedido_para_pagamento(dados.pedido_id)
     if _pedido_ja_aprovado(dados.pedido_id):
         raise HTTPException(status_code=409, detail="Este pedido já está pago")
-    if not pedido.get("cpf"):
+    if not pedido.get("cpf_cnpj"):
         raise HTTPException(
             status_code=422,
-            detail="Pedido sem CPF cadastrado; finalize pelo PIX ou refaça o pedido.",
+            detail="Pedido sem CPF/CNPJ cadastrado; finalize pelo PIX ou refaça o pedido.",
         )
 
     # Reaproveita boleto pendente dentro do vencimento (reload da página não
@@ -393,7 +399,7 @@ def criar_pagamento_boleto(dados: PagamentoBoletoCreate) -> dict:
             "email": dados.email,
             "first_name": primeiro_nome,
             "last_name": sobrenome,
-            "identification": {"type": "CPF", "number": pedido["cpf"]},
+            "identification": _identificacao_mp(pedido),
             "address": {
                 "zip_code": (pedido.get("cep") or "").replace("-", ""),
                 "street_name": pedido.get("rua"),
