@@ -25,3 +25,9 @@ export const PRODUTO_IMAGENS: Record<string, string[]> = {
   CarSpray: [pCarSpray],
   "Difusor de Carro": [pCarDiffuser, pCarDiffuser2],
 };
+
+// Fotos enviadas pelo admin têm prioridade; sem elas, cai nas embutidas.
+export function imagensDoProduto(produto: { nome: string; imagens?: string[] }): string[] {
+  if (produto.imagens && produto.imagens.length > 0) return produto.imagens;
+  return PRODUTO_IMAGENS[produto.nome] ?? [];
+}

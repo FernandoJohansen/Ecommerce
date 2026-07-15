@@ -88,6 +88,7 @@ def checkout_cart(user, dados: CartCheckoutRequest) -> dict:
         ],
         nome_cliente=dados.nome_cliente,
         telefone=dados.telefone,
+        cpf=dados.cpf,
         endereco=dados.endereco.model_dump(),
         observacoes=dados.observacoes,
         user_id=user.id,

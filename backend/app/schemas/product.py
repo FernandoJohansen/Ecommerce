@@ -77,10 +77,19 @@ class ProdutoResponse(BaseModel):
     tag: str | None = None
     estoque: int = 0
     precos: dict[str, int] = {}
+    imagens: list[str] = []
 
 
 class EstoqueUpdate(BaseModel):
     estoque: int = Field(ge=0)
+
+
+class ImagemRemove(BaseModel):
+    url: str = Field(min_length=1)
+
+
+class ImagensReorder(BaseModel):
+    imagens: list[str]
 
 
 class AromaResponse(BaseModel):

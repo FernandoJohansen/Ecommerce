@@ -1,66 +1,70 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import { ApiError, apiFetch } from "@/lib/api";
-import { formatarPreco } from "@/lib/precos";
+import { PagamentoConfirmado } from "@/components/pagamento/comum";
+import { PixView } from "@/components/pagamento/pix-view";
+import { CartaoView } from "@/components/pagamento/cartao-view";
+import { BoletoView } from "@/components/pagamento/boleto-view";
 
 export const Route = createFileRoute("/pagamento/$pedidoId")({
   component: PagamentoPage,
 });
 
-type CobrancaPix = {
-  txid: string;
+type Metodos = {
+  pix: boolean;
+  cartao: boolean;
+  boleto: boolean;
+  max_parcelas: number;
+};
+
+type ResumoPedido = {
   pedido_id: string;
+  total_centavos: number;
   status: string;
-  valor_centavos: number;
-  brcode: string | null;
-  qrcode: string | null;
+  tem_cpf: boolean;
+};
+
+type MetodoPagamento = "pix" | "cartao" | "boleto";
+
+const ROTULOS: Record<MetodoPagamento, { titulo: string; legenda: (m: Metodos) => string }> = {
+  pix: { titulo: "PIX", legenda: () => "Recomendado · aprovação imediata" },
+  cartao: { titulo: "Cartão de crédito", legenda: (m) => `até ${m.max_parcelas}x` },
+  boleto: { titulo: "Boleto", legenda: () => "compensa em 1–3 dias úteis" },
 };
 
 function PagamentoPage() {
   const { pedidoId } = Route.useParams();
-  const queryClient = useQueryClient();
-  const [copiado, setCopiado] = useState(false);
+  const [escolhido, setEscolhido] = useState<MetodoPagamento | null>(null);
 
-  // POST é idempotente no backend: reaproveita a cobrança ativa do pedido
-  const criar = useQuery<CobrancaPix>({
-    queryKey: ["pix-cobranca", pedidoId],
-    queryFn: () =>
-      apiFetch("/pagamento/pix", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pedido_id: pedidoId }),
-      }),
+  const metodosQuery = useQuery<Metodos>({
+    queryKey: ["pagamento-metodos"],
+    queryFn: () => apiFetch("/pagamento/metodos"),
     staleTime: Infinity,
+  });
+  // Se /metodos falhar, degrada para o fluxo antigo (só PIX)
+  const metodos = metodosQuery.data ?? {
+    pix: true,
+    cartao: false,
+    boleto: false,
+    max_parcelas: 12,
+  };
+
+  const resumoQuery = useQuery<ResumoPedido>({
+    queryKey: ["pagamento-resumo", pedidoId],
+    queryFn: () => apiFetch(`/pagamento/resumo/${pedidoId}`),
     retry: false,
   });
+  const resumo = resumoQuery.data;
 
-  const txid = criar.data?.txid;
-  const status = useQuery<CobrancaPix>({
-    queryKey: ["pix-status", txid],
-    queryFn: () => apiFetch(`/pagamento/pix/${txid}`),
-    enabled: !!txid,
-    refetchInterval: (query) => (query.state.data?.status === "ATIVA" ? 5000 : false),
-  });
+  const disponiveis = (["pix", "cartao", "boleto"] as const).filter((m) => metodos[m]);
+  const metodo =
+    escolhido && disponiveis.includes(escolhido) ? escolhido : (disponiveis[0] ?? null);
 
-  const cobranca = status.data ?? criar.data;
-  const indisponivel = criar.error instanceof ApiError && criar.error.status === 503;
-  const pago = cobranca?.status === "CONCLUIDA";
-  const removida = cobranca !== undefined && cobranca.status.startsWith("REMOVIDA");
-
-  const copiar = async () => {
-    if (!cobranca?.brcode) return;
-    await navigator.clipboard.writeText(cobranca.brcode);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2500);
-  };
-
-  const novaCobranca = () => {
-    queryClient.removeQueries({ queryKey: ["pix-status"] });
-    queryClient.invalidateQueries({ queryKey: ["pix-cobranca", pedidoId] });
-  };
+  const pedidoNaoEncontrado =
+    resumoQuery.error instanceof ApiError && resumoQuery.error.status === 404;
 
   return (
     <div className="min-h-screen bg-background px-4 py-10">
@@ -79,118 +83,89 @@ function PagamentoPage() {
           </Button>
         </div>
 
+        {disponiveis.length > 1 && resumo?.status !== "pago" && !pedidoNaoEncontrado && (
+          <div className="mb-8 grid gap-3 sm:grid-cols-3">
+            {disponiveis.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setEscolhido(m)}
+                className={`border p-4 text-left transition-colors ${
+                  metodo === m
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border hover:border-foreground"
+                }`}
+              >
+                <span className="block text-xs uppercase tracking-[0.2em]">
+                  {ROTULOS[m].titulo}
+                </span>
+                <span
+                  className={`mt-1 block text-[10px] uppercase tracking-widest ${
+                    metodo === m ? "text-background/70" : "text-muted-foreground"
+                  }`}
+                >
+                  {ROTULOS[m].legenda(metodos)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="border border-border p-8 text-center sm:p-12">
-          {criar.isPending && (
-            <p className="text-sm text-muted-foreground">Gerando cobrança PIX…</p>
-          )}
-
-          {indisponivel && (
+          {pedidoNaoEncontrado && (
             <>
-              <p className="serif mb-4 text-2xl">Pedido confirmado!</p>
-              <p className="mb-8 text-sm text-muted-foreground">
-                O pagamento por PIX está indisponível no momento. Recebemos o seu pedido e
-                entraremos em contato pelo WhatsApp para combinar o pagamento e a entrega.
-              </p>
+              <p className="mb-6 text-sm text-muted-foreground">Pedido não encontrado.</p>
               <Button
                 asChild
-                className="rounded-none bg-foreground text-xs uppercase tracking-[0.2em] text-background hover:bg-foreground/90"
+                variant="outline"
+                className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
               >
                 <Link to="/">Voltar à loja</Link>
               </Button>
             </>
           )}
 
-          {criar.isError && !indisponivel && (
-            <>
-              <p className="mb-6 text-sm text-destructive">
-                {criar.error instanceof ApiError && criar.error.detail
-                  ? criar.error.detail
-                  : "Não foi possível gerar a cobrança PIX."}
-              </p>
-              <Button
-                onClick={novaCobranca}
-                variant="outline"
-                className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
-              >
-                Tentar novamente
-              </Button>
-            </>
+          {!pedidoNaoEncontrado && resumo?.status === "pago" && (
+            <PagamentoConfirmado valorCentavos={resumo.total_centavos} />
           )}
 
-          {pago && (
+          {!pedidoNaoEncontrado && resumo?.status !== "pago" && (
             <>
-              <p className="serif mb-4 text-2xl">Pagamento confirmado!</p>
-              <p className="mb-2 text-sm text-muted-foreground">
-                Total: {formatarPreco(cobranca!.valor_centavos)}
-              </p>
-              <p className="mb-8 text-sm text-muted-foreground">
-                Recebemos o seu pagamento. Entraremos em contato pelo WhatsApp para combinar a
-                entrega.
-              </p>
-              <Button
-                asChild
-                className="rounded-none bg-foreground text-xs uppercase tracking-[0.2em] text-background hover:bg-foreground/90"
-              >
-                <Link to="/">Voltar à loja</Link>
-              </Button>
-            </>
-          )}
-
-          {removida && (
-            <>
-              <p className="mb-6 text-sm text-muted-foreground">
-                Esta cobrança PIX expirou ou foi cancelada.
-              </p>
-              <Button
-                onClick={novaCobranca}
-                variant="outline"
-                className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
-              >
-                Gerar nova cobrança
-              </Button>
-            </>
-          )}
-
-          {cobranca && cobranca.status === "ATIVA" && (
-            <>
-              <p className="serif mb-2 text-2xl">Pague com PIX</p>
-              <p className="mb-6 text-sm text-muted-foreground">
-                Total: {formatarPreco(cobranca.valor_centavos)}
-              </p>
-              {cobranca.qrcode && (
-                <img
-                  src={cobranca.qrcode}
-                  alt="QR Code PIX"
-                  className="mx-auto mb-6 h-56 w-56 border border-border"
-                />
-              )}
-              <p className="mb-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Escaneie o QR Code ou use o copia e cola
-              </p>
-              {cobranca.brcode && (
-                <div className="mb-6">
-                  <p className="mb-3 break-all border border-border p-3 text-left font-mono text-[10px] text-muted-foreground">
-                    {cobranca.brcode}
+              {disponiveis.length === 0 && (
+                <>
+                  <p className="serif mb-4 text-2xl">Pedido confirmado!</p>
+                  <p className="mb-8 text-sm text-muted-foreground">
+                    O pagamento online está indisponível no momento. Recebemos o seu pedido e
+                    entraremos em contato pelo WhatsApp para combinar o pagamento e a entrega.
                   </p>
                   <Button
-                    onClick={copiar}
-                    variant="outline"
-                    className="w-full rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
+                    asChild
+                    className="rounded-none bg-foreground text-xs uppercase tracking-[0.2em] text-background hover:bg-foreground/90"
                   >
-                    {copiado ? "Copiado!" : "Copiar código PIX"}
+                    <Link to="/">Voltar à loja</Link>
                   </Button>
-                </div>
+                </>
               )}
-              <p className="animate-pulse text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Aguardando pagamento…
-              </p>
-              <p className="mt-4 text-xs text-muted-foreground">
-                A confirmação é automática. Você pode fechar esta página e acompanhar o pedido em{" "}
-                <Link to="/pedidos" className="underline">
-                  Meus pedidos
-                </Link>
-                .
-              </p>
+
+              {metodo === "pix" && <PixView pedidoId={pedidoId} />}
+
+              {metodo === "cartao" &&
+                (resumo ? (
+                  <CartaoView
+                    pedidoId={pedidoId}
+                    totalCentavos={resumo.total_centavos}
+                    maxParcelas={metodos.max_parcelas}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Carregando…</p>
+                ))}
+
+              {metodo === "boleto" &&
+                (resumo ? (
+                  <BoletoView pedidoId={pedidoId} temCpf={resumo.tem_cpf} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Carregando…</p>
+                ))}
             </>
           )}
         </div>

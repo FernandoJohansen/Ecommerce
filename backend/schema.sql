@@ -13,6 +13,9 @@ CREATE TABLE produtos (
   estoque     INTEGER     NOT NULL DEFAULT 0 CHECK (estoque >= 0),
   -- Preço por tamanho, em centavos: {"250ml": 7990, "500ml": 11990}
   precos      JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  -- URLs públicas do bucket "produtos" (primeira = principal). Vazio =
+  -- o site usa as fotos embutidas (frontend/src/lib/produto-imagens.ts).
+  imagens     TEXT[]      NOT NULL DEFAULT '{}',
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -42,6 +45,8 @@ CREATE TABLE pedidos (
   bairro          TEXT,
   cidade          TEXT,
   estado          TEXT,
+  -- CPF do cliente, só dígitos (exigido pelo Mercado Pago p/ boleto e cartão)
+  cpf             TEXT,
   observacoes     TEXT,
   total_centavos  INTEGER     NOT NULL DEFAULT 0 CHECK (total_centavos >= 0),
   status          TEXT        DEFAULT 'novo',
@@ -63,25 +68,44 @@ CREATE TABLE pedido_itens (
 
 CREATE INDEX pedido_itens_pedido_idx ON pedido_itens (pedido_id);
 
--- Cobranças PIX (API Sicredi). Status segue o Bacen: ATIVA, CONCLUIDA,
--- REMOVIDA_PELO_USUARIO_RECEBEDOR, REMOVIDA_PELO_PSP. Pagamento confirmado
--- também marca pedidos.status = 'pago'. Backend-only (service role); RLS
--- habilitado sem policies.
+-- Pagamentos: PIX (API Sicredi) + cartão/boleto (Mercado Pago). status guarda
+-- o valor nativo do PSP — pix (Bacen): ATIVA, CONCLUIDA, REMOVIDA_*;
+-- cartao/boleto (MP): pending, approved, rejected, cancelled, in_process,
+-- refunded, charged_back. Pagamento confirmado também marca
+-- pedidos.status = 'pago'. Backend-only (service role); RLS habilitado sem
+-- policies.
 CREATE TABLE pagamentos (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   pedido_id       UUID        NOT NULL REFERENCES pedidos (id) ON DELETE CASCADE,
-  txid            TEXT        NOT NULL UNIQUE,
+  metodo          TEXT        NOT NULL DEFAULT 'pix'
+                              CHECK (metodo IN ('pix', 'cartao', 'boleto')),
+  -- txid do Bacen (só PIX; UNIQUE permite múltiplos NULLs)
+  txid            TEXT        UNIQUE,
+  -- id do pagamento no Mercado Pago (só cartao/boleto)
+  mp_payment_id   TEXT        UNIQUE,
   valor_centavos  INTEGER     NOT NULL CHECK (valor_centavos > 0),
   status          TEXT        NOT NULL DEFAULT 'ATIVA',
   -- pixCopiaECola retornado pelo Sicredi (usado para gerar o QR Code)
   brcode          TEXT,
   -- endToEndId do PIX recebido (preenchido na confirmação)
   e2eid           TEXT,
+  -- Campos de exibição do Mercado Pago: boleto_url, boleto_linha_digitavel,
+  -- boleto_vencimento, status_detail, parcelas, bandeira, email_pagador
+  detalhes        JSONB,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
-  pago_em         TIMESTAMPTZ
+  pago_em         TIMESTAMPTZ,
+  CONSTRAINT pagamentos_identificador_psp
+    CHECK ((metodo = 'pix' AND txid IS NOT NULL)
+        OR (metodo IN ('cartao', 'boleto') AND mp_payment_id IS NOT NULL))
 );
 
 CREATE INDEX pagamentos_pedido_idx ON pagamentos (pedido_id);
+
+-- Migration for databases created before the Sprint 3 stragglers (product
+-- image uploads): see migrations/2026-07-14_sprint3_produtos_imagens.sql
+
+-- Migration for databases created before Sprint 7 (Mercado Pago):
+--   see migrations/2026-07-14_sprint7_mercado_pago.sql
 
 -- Migration for databases created before Sprint 6 (PIX/Sicredi):
 --   see migrations/2026-07-14_sprint6_pagamentos.sql
@@ -215,6 +239,14 @@ REVOKE ALL ON FUNCTION ajustar_estoque(TEXT, INTEGER) FROM PUBLIC, anon, authent
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', TRUE)
+ON CONFLICT (id) DO NOTHING;
+
+-- ── Storage: fotos de produto ────────────────────────────────────────────────
+-- Public-read bucket for product photos; uploads go through the backend
+-- (staff-only endpoints, service role), so no storage policies are needed.
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('produtos', 'produtos', TRUE)
 ON CONFLICT (id) DO NOTHING;
 
 -- ── Seed data ────────────────────────────────────────────────────────────────

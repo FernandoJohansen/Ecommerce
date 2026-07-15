@@ -32,6 +32,20 @@ def update_produto(produto_id: str, data: dict) -> dict:
     return result.data[0] if result.data else {}
 
 
+PRODUTO_IMAGENS_BUCKET = "produtos"
+
+
+def upload_imagem_storage(path: str, content: bytes, content_type: str) -> str:
+    """Sobe a imagem no bucket de produtos e retorna a URL pública."""
+    storage = supabase.storage.from_(PRODUTO_IMAGENS_BUCKET)
+    storage.upload(path, content, {"content-type": content_type, "upsert": "true"})
+    return storage.get_public_url(path).rstrip("?")
+
+
+def remove_imagem_storage(path: str) -> None:
+    supabase.storage.from_(PRODUTO_IMAGENS_BUCKET).remove([path])
+
+
 def get_all_aromas() -> list[dict]:
     result = supabase.table("aromas").select("*").eq("ativo", True).order("ordem").execute()
     return result.data

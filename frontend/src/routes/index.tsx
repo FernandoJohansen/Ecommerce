@@ -6,7 +6,8 @@ import { isAuthenticated, isStaff } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { formatarPreco, menorPreco, type ProdutoApi } from "@/lib/precos";
 import hero from "@/assets/products/difusor_vidro3.jpeg";
-import { PRODUTO_IMAGENS } from "@/lib/produto-imagens";
+import { imagensDoProduto } from "@/lib/produto-imagens";
+import { normalizarBusca, slugify } from "@/lib/utils";
 import { AtendimentoForm } from "@/components/AtendimentoForm";
 import { Reveal } from "@/components/Reveal";
 
@@ -24,58 +25,7 @@ export const Route = createFileRoute("/")({
   }),
 });
 
-// apiNome liga o card ao produto no catálogo (coluna "nome" no banco)
-const products = [
-  {
-    imgs: PRODUTO_IMAGENS["Difusor de Vidro"],
-    nome: "Difusor de Vidro",
-    apiNome: "Difusor de Vidro",
-    desc: "Disponível em 100ml e 250ml. Frasco em vidro com fitas e varetas pretas.",
-    tag: "Linha Premium",
-  },
-  {
-    imgs: PRODUTO_IMAGENS["Difusor PET"],
-    nome: "Difusor PET",
-    apiNome: "Difusor PET",
-    desc: "Tamanho único 250ml. Praticidade em embalagem leve e resistente.",
-    tag: "Tamanho único",
-  },
-  {
-    imgs: PRODUTO_IMAGENS["Home Spray"],
-    nome: "Home Spray",
-    apiNome: "Home Spray",
-    desc: "Borrife e perfume o ambiente em segundos. Fixação prolongada.",
-    tag: "Aplicação rápida",
-  },
-  {
-    imgs: PRODUTO_IMAGENS["Refil"],
-    nome: "Refis",
-    apiNome: "Refil",
-    desc: "Renove o aroma do seu difusor com nossos refis em diversos volumes.",
-    tag: "Recarregue & economize",
-  },
-  {
-    imgs: PRODUTO_IMAGENS["Kit Lavabo"],
-    nome: "Kit Lavabo",
-    apiNome: "Kit Lavabo",
-    desc: "Difusor e sabonete líquido em vidro para o lavabo. Disponível em 100ml e 250ml.",
-    tag: "Para o lavabo",
-  },
-  {
-    imgs: PRODUTO_IMAGENS["CarSpray"],
-    nome: "CarSpray",
-    apiNome: "CarSpray",
-    desc: "Spray de 60ml para perfumar o carro onde você estiver.",
-    tag: "Para o carro",
-  },
-  {
-    imgs: PRODUTO_IMAGENS["Difusor de Carro"],
-    nome: "Difusor de Carro",
-    apiNome: "Difusor de Carro",
-    desc: "Difusor compacto para pendurar no retrovisor e perfumar o dia a dia.",
-    tag: "Para o carro",
-  },
-];
+type Categoria = { nome: string; total_produtos: number };
 
 function AuthLinks() {
   const [logado, setLogado] = useState(false);
@@ -286,13 +236,25 @@ function Produtos() {
     queryKey: ["produtos"],
     queryFn: () => apiFetch("/produtos"),
   });
-  const precoInicial = (apiNome: string) =>
-    menorPreco(catalogo.find((p) => p.nome === apiNome)?.precos);
+  const { data: categorias = [] } = useQuery<Categoria[]>({
+    queryKey: ["categorias"],
+    queryFn: () => apiFetch("/categorias"),
+  });
+
+  const [busca, setBusca] = useState("");
+  const [categoria, setCategoria] = useState<string | null>(null);
+
+  const termo = normalizarBusca(busca.trim());
+  const produtos = catalogo.filter(
+    (p) =>
+      (categoria === null || p.tag === categoria) &&
+      (termo === "" || normalizarBusca(`${p.nome} ${p.descricao ?? ""}`).includes(termo)),
+  );
 
   return (
     <section id="produtos" className="bg-background py-28">
       <div className="mx-auto max-w-7xl px-6 md:px-12">
-        <Reveal className="mb-16 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+        <Reveal className="mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
             <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
               Coleção
@@ -300,62 +262,117 @@ function Produtos() {
             <h2 className="serif mt-3 text-5xl md:text-6xl">Linha completa de aromas</h2>
           </div>
           <p className="max-w-md text-muted-foreground">
-            Os destaques da coleção, pensados para diferentes ambientes e ocasiões. No atendimento
-            você também encontra varetas de reposição.
+            Toda a coleção, pensada para diferentes ambientes e ocasiões. Busque pelo nome ou
+            navegue pelas categorias.
           </p>
         </Reveal>
 
+        <Reveal className="mb-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {[{ nome: "Todos", total_produtos: catalogo.length }, ...categorias].map((c) => {
+              const valor = c.nome === "Todos" ? null : c.nome;
+              const ativo = categoria === valor;
+              return (
+                <button
+                  key={c.nome}
+                  onClick={() => setCategoria(valor)}
+                  className={`border px-4 py-2 text-xs uppercase tracking-[0.2em] transition-colors ${
+                    ativo
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                  }`}
+                >
+                  {c.nome}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            type="search"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar produto…"
+            aria-label="Buscar produto"
+            className="w-full border-0 border-b border-foreground bg-transparent px-0 py-2 text-base outline-none placeholder:text-muted-foreground md:max-w-xs"
+          />
+        </Reveal>
+
+        {produtos.length === 0 && (
+          <p className="py-12 text-center text-muted-foreground">
+            Nenhum produto encontrado{busca.trim() ? ` para “${busca.trim()}”` : ""}.
+          </p>
+        )}
+
         <div className="grid gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-          {products.map((p, i) => (
-            <Reveal key={p.nome} delay={i * 100} className="bg-background">
-              <article className="group flex h-full flex-col p-6">
-                <div className="relative overflow-hidden bg-secondary">
-                  <img
-                    src={p.imgs[0]}
-                    alt={p.nome}
-                    width={800}
-                    height={1000}
-                    loading="lazy"
-                    className="h-80 w-full object-contain transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                  {p.imgs[1] && (
-                    <img
-                      src={p.imgs[1]}
-                      alt=""
-                      width={800}
-                      height={1000}
-                      loading="lazy"
-                      aria-hidden
-                      className="absolute inset-0 h-80 w-full bg-secondary object-contain opacity-0 transition-opacity duration-700 ease-out group-hover:opacity-100"
-                    />
-                  )}
-                  <span className="serif absolute left-4 top-3 text-sm tracking-widest text-foreground/60">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                </div>
-                <div className="flex flex-1 flex-col pt-6">
-                  <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                    {p.tag}
-                  </span>
-                  <h3 className="serif mt-2 text-2xl">{p.nome}</h3>
-                  <p className="mt-2 flex-1 text-sm text-muted-foreground">{p.desc}</p>
-                  {precoInicial(p.apiNome) !== null && (
-                    <p className="mt-4 text-sm">
-                      <span className="text-muted-foreground">a partir de </span>
-                      {formatarPreco(precoInicial(p.apiNome)!)}
-                    </p>
-                  )}
-                  <a
-                    href="#atendimento"
-                    className="mt-6 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-muted-foreground transition-colors group-hover:text-foreground"
-                  >
-                    Pedir agora
-                    <span className="h-px w-6 bg-current transition-all duration-300 group-hover:w-10" />
-                  </a>
-                </div>
-              </article>
-            </Reveal>
-          ))}
+          {produtos.map((p, i) => {
+            const fotos = imagensDoProduto(p);
+            const precoInicial = menorPreco(p.precos);
+            return (
+              <Reveal key={p.id} delay={i * 100} className="bg-background">
+                <article className="group flex h-full flex-col p-6">
+                  <Link to="/produto/$slug" params={{ slug: slugify(p.nome) }}>
+                    <div className="relative overflow-hidden bg-secondary">
+                      {fotos[0] ? (
+                        <img
+                          src={fotos[0]}
+                          alt={p.nome}
+                          width={800}
+                          height={1000}
+                          loading="lazy"
+                          className="h-80 w-full object-contain transition-transform duration-700 ease-out group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-80 w-full items-center justify-center">
+                          <span className="serif text-6xl text-foreground/20">
+                            {p.nome.charAt(0)}
+                          </span>
+                        </div>
+                      )}
+                      {fotos[1] && (
+                        <img
+                          src={fotos[1]}
+                          alt=""
+                          width={800}
+                          height={1000}
+                          loading="lazy"
+                          aria-hidden
+                          className="absolute inset-0 h-80 w-full bg-secondary object-contain opacity-0 transition-opacity duration-700 ease-out group-hover:opacity-100"
+                        />
+                      )}
+                      <span className="serif absolute left-4 top-3 text-sm tracking-widest text-foreground/60">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                    </div>
+                  </Link>
+                  <div className="flex flex-1 flex-col pt-6">
+                    {p.tag && (
+                      <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                        {p.tag}
+                      </span>
+                    )}
+                    <h3 className="serif mt-2 text-2xl">{p.nome}</h3>
+                    {p.descricao && (
+                      <p className="mt-2 flex-1 text-sm text-muted-foreground">{p.descricao}</p>
+                    )}
+                    {precoInicial !== null && (
+                      <p className="mt-4 text-sm">
+                        <span className="text-muted-foreground">a partir de </span>
+                        {formatarPreco(precoInicial)}
+                      </p>
+                    )}
+                    <Link
+                      to="/produto/$slug"
+                      params={{ slug: slugify(p.nome) }}
+                      className="mt-6 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-muted-foreground transition-colors group-hover:text-foreground"
+                    >
+                      Ver produto
+                      <span className="h-px w-6 bg-current transition-all duration-300 group-hover:w-10" />
+                    </Link>
+                  </div>
+                </article>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>

@@ -25,6 +25,19 @@ PIX_WEBHOOK_URL: str = os.getenv("PIX_WEBHOOK_URL", "")
 SICREDI_ENABLED: bool = bool(
     SICREDI_CLIENT_ID and SICREDI_CLIENT_SECRET and SICREDI_CERT_PATH and SICREDI_KEY_PATH
 )
+
+# Mercado Pago (cartão de crédito + boleto). Sem access token, os endpoints
+# de cartão/boleto respondem 503 e o PIX segue funcionando normalmente.
+MERCADO_PAGO_BASE_URL: str = os.getenv("MERCADO_PAGO_BASE_URL", "https://api.mercadopago.com")
+MERCADO_PAGO_ACCESS_TOKEN: str = os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "")
+# Assinatura secreta da tela de Webhooks do painel MP (opcional; habilita a
+# validação do header x-signature)
+MERCADO_PAGO_WEBHOOK_SECRET: str = os.getenv("MERCADO_PAGO_WEBHOOK_SECRET", "")
+# URL pública deste backend enviada como notification_url em cada pagamento:
+# https://SEU-BACKEND/api/pagamento/webhook/mercadopago
+MERCADO_PAGO_WEBHOOK_URL: str = os.getenv("MERCADO_PAGO_WEBHOOK_URL", "")
+MERCADO_PAGO_MAX_PARCELAS: int = int(os.getenv("MERCADO_PAGO_MAX_PARCELAS", "12"))
+MERCADO_PAGO_ENABLED: bool = bool(MERCADO_PAGO_ACCESS_TOKEN)
 ADMIN_EMAILS: set[str] = {
     email.strip().lower() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip()
 }

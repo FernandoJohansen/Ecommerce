@@ -47,6 +47,8 @@ class DadosCliente(BaseModel):
 
     nome_cliente: str = Field(min_length=2, max_length=120)
     telefone: str
+    # Exigido pelo Mercado Pago para boleto e antifraude de cartão
+    cpf: str
     endereco: EnderecoEntrega
     observacoes: str | None = Field(default=None, max_length=500)
 
@@ -64,6 +66,20 @@ class DadosCliente(BaseModel):
         digitos = re.sub(r"\D", "", v)
         if not 10 <= len(digitos) <= 11:
             raise ValueError("Telefone deve ter DDD + número (10 ou 11 dígitos)")
+        return digitos
+
+    @field_validator("cpf")
+    @classmethod
+    def valida_cpf(cls, v: str) -> str:
+        digitos = re.sub(r"\D", "", v)
+        if len(digitos) != 11 or digitos == digitos[0] * 11:
+            raise ValueError("CPF inválido")
+        # Dígitos verificadores (módulo 11)
+        for tamanho in (9, 10):
+            soma = sum(int(d) * peso for d, peso in zip(digitos, range(tamanho + 1, 1, -1)))
+            dv = (soma * 10) % 11 % 10
+            if dv != int(digitos[tamanho]):
+                raise ValueError("CPF inválido")
         return digitos
 
 
@@ -97,6 +113,7 @@ class PedidoResponse(BaseModel):
     bairro: str | None = None
     cidade: str | None = None
     estado: str | None = None
+    cpf: str | None = None
     observacoes: str | None = None
     total_centavos: int = 0
     status: str

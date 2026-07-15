@@ -86,6 +86,26 @@ const formatarTelefone = (v: string) => {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 };
 
+const formatarCpf = (v: string) => {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+};
+
+// Mesma regra do backend: 11 dígitos, não todos iguais, dígitos verificadores
+const validarCpf = (digitos: string) => {
+  if (digitos.length !== 11 || /^(\d)\1{10}$/.test(digitos)) return false;
+  for (const tamanho of [9, 10]) {
+    let soma = 0;
+    for (let i = 0; i < tamanho; i++) soma += Number(digitos[i]) * (tamanho + 1 - i);
+    const dv = ((soma * 10) % 11) % 10;
+    if (dv !== Number(digitos[tamanho])) return false;
+  }
+  return true;
+};
+
 function CheckoutPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -142,6 +162,7 @@ function CheckoutPage() {
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [cpf, setCpf] = useState("");
   const [cep, setCep] = useState("");
   const [rua, setRua] = useState("");
   const [numero, setNumero] = useState("");
@@ -157,6 +178,7 @@ function CheckoutPage() {
     if (nome.trim().length < 2) novos.nome = "Informe o nome completo";
     const telDigitos = telefone.replace(/\D/g, "");
     if (telDigitos.length < 10 || telDigitos.length > 11) novos.telefone = "Informe DDD + número";
+    if (!validarCpf(cpf.replace(/\D/g, ""))) novos.cpf = "CPF inválido";
     if (cep.replace(/\D/g, "").length !== 8) novos.cep = "CEP deve ter 8 dígitos";
     if (rua.trim().length < 2) novos.rua = "Informe a rua";
     if (!numero.trim()) novos.numero = "Informe o número";
@@ -170,6 +192,7 @@ function CheckoutPage() {
   const dadosCliente = () => ({
     nome_cliente: nome.trim(),
     telefone: telefone.replace(/\D/g, ""),
+    cpf: cpf.replace(/\D/g, ""),
     endereco: {
       cep: cep.replace(/\D/g, ""),
       rua: rua.trim(),
@@ -270,6 +293,11 @@ function CheckoutPage() {
                     placeholder: "(42) 99999-9999",
                   },
                 )}
+              </div>
+              <div className="grid gap-6 sm:grid-cols-2">
+                {campo("CPF", cpf, (v) => setCpf(formatarCpf(v)), "cpf", {
+                  placeholder: "000.000.000-00",
+                })}
               </div>
               <div className="grid gap-6 sm:grid-cols-[140px_1fr_100px]">
                 {campo("CEP", cep, (v) => setCep(formatarCep(v)), "cep", {

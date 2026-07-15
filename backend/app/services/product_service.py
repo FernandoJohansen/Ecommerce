@@ -1,6 +1,10 @@
+import logging
+from uuid import uuid4
+
 from fastapi import HTTPException
 
 from app.repositories.product_repository import (
+    PRODUTO_IMAGENS_BUCKET,
     adjust_estoque,
     get_all_aromas,
     get_all_produtos,
@@ -8,10 +12,17 @@ from app.repositories.product_repository import (
     get_produto_by_id,
     get_produto_by_nome,
     insert_produto,
+    remove_imagem_storage,
     update_produto,
     update_produto_estoque,
+    upload_imagem_storage,
 )
 from app.schemas.product import ProdutoCreate, ProdutoUpdate
+
+logger = logging.getLogger(__name__)
+
+IMAGEM_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+IMAGEM_MAX_BYTES = 5 * 1024 * 1024
 
 
 # Nome do produto que serve de add-on quando um item é pedido "com refil".
@@ -102,6 +113,63 @@ def atualizar_produto(produto_id: str, body: ProdutoUpdate) -> dict:
     _checar_precos_nos_tamanhos(tamanhos, precos)
 
     return update_produto(produto_id, campos)
+
+
+def _produto_ou_404(produto_id: str) -> dict:
+    produto = get_produto_by_id(produto_id)
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    return produto
+
+
+def adicionar_imagem(produto_id: str, content: bytes, content_type: str | None) -> dict:
+    produto = _produto_ou_404(produto_id)
+    ext = IMAGEM_TYPES.get(content_type or "")
+    if not ext:
+        raise HTTPException(
+            status_code=400, detail="Formato inválido. Envie uma imagem JPG, PNG ou WebP."
+        )
+    if len(content) > IMAGEM_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Imagem muito grande. O limite é 5MB.")
+
+    path = f"{produto_id}/{uuid4().hex}.{ext}"
+    try:
+        url = upload_imagem_storage(path, content, content_type)
+    except Exception:
+        logger.exception("Upload de imagem falhou para o produto %s", produto_id)
+        raise HTTPException(status_code=500, detail="Não foi possível enviar a imagem.")
+
+    imagens = list(produto.get("imagens") or []) + [url]
+    return update_produto(produto_id, {"imagens": imagens})
+
+
+def remover_imagem(produto_id: str, url: str) -> dict:
+    produto = _produto_ou_404(produto_id)
+    imagens = list(produto.get("imagens") or [])
+    if url not in imagens:
+        raise HTTPException(status_code=404, detail="Imagem não encontrada neste produto")
+
+    # Remove do storage antes de tirar da lista; se o arquivo já não existir,
+    # a lista é atualizada mesmo assim.
+    marcador = f"/object/public/{PRODUTO_IMAGENS_BUCKET}/"
+    if marcador in url:
+        try:
+            remove_imagem_storage(url.split(marcador, 1)[1])
+        except Exception:
+            logger.exception("Remoção no storage falhou para %s", url)
+
+    imagens.remove(url)
+    return update_produto(produto_id, {"imagens": imagens})
+
+
+def reordenar_imagens(produto_id: str, imagens: list[str]) -> dict:
+    produto = _produto_ou_404(produto_id)
+    atuais = list(produto.get("imagens") or [])
+    if sorted(imagens) != sorted(atuais):
+        raise HTTPException(
+            status_code=422, detail="A nova ordem deve conter exatamente as imagens atuais"
+        )
+    return update_produto(produto_id, {"imagens": imagens})
 
 
 def set_estoque(produto_id: str, estoque: int) -> dict:

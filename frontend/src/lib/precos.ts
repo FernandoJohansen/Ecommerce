@@ -6,6 +6,9 @@ export type ProdutoApi = {
   tag?: string | null;
   estoque: number;
   precos: Record<string, number>;
+  // URLs de fotos enviadas pelo admin (primeira = principal); quando vazio,
+  // o site usa as fotos embutidas de produto-imagens.ts
+  imagens?: string[];
 };
 
 export function formatarPreco(centavos: number): string {

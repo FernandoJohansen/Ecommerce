@@ -1,0 +1,67 @@
+"""Cliente da API de pagamentos do Mercado Pago (cartão de crédito + boleto).
+
+Autenticação por Bearer token estático (access token da aplicação) — sem
+OAuth nem mTLS. POST /v1/payments exige o header X-Idempotency-Key; sem ele
+o MP responde 400.
+"""
+
+import httpx
+from fastapi import HTTPException
+
+from app.core.config import (
+    MERCADO_PAGO_ACCESS_TOKEN,
+    MERCADO_PAGO_BASE_URL,
+    MERCADO_PAGO_ENABLED,
+)
+
+
+def exigir_mercado_pago() -> None:
+    if not MERCADO_PAGO_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Este método de pagamento está indisponível no momento.",
+        )
+
+
+def _client() -> httpx.Client:
+    return httpx.Client(
+        base_url=MERCADO_PAGO_BASE_URL,
+        headers={"Authorization": f"Bearer {MERCADO_PAGO_ACCESS_TOKEN}"},
+        timeout=20.0,
+    )
+
+
+def _requisicao(
+    metodo: str, caminho: str, json: dict | None = None, idempotency_key: str | None = None
+) -> dict:
+    exigir_mercado_pago()
+    headers = {"X-Idempotency-Key": idempotency_key} if idempotency_key else {}
+    try:
+        with _client() as client:
+            resp = client.request(metodo, caminho, json=json, headers=headers)
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="PSP de pagamento inacessível")
+
+    if resp.status_code == 404:
+        raise HTTPException(status_code=404, detail="Pagamento não encontrado no PSP")
+    if resp.status_code == 400:
+        # Erros 400 do MP costumam ser acionáveis pelo usuário (ex.: token do
+        # cartão expirado — vale ~7 min); repassa a mensagem como 422.
+        try:
+            mensagem = resp.json().get("message") or "Dados de pagamento inválidos"
+        except Exception:
+            mensagem = "Dados de pagamento inválidos"
+        raise HTTPException(status_code=422, detail=mensagem)
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Erro do PSP de pagamento")
+    return resp.json()
+
+
+def criar_pagamento(payload: dict, idempotency_key: str) -> dict:
+    """Cria um pagamento (POST /v1/payments) — cartão ou boleto, conforme o
+    payment_method_id do payload."""
+    return _requisicao("POST", "/v1/payments", json=payload, idempotency_key=idempotency_key)
+
+
+def consultar_pagamento(payment_id: str) -> dict:
+    return _requisicao("GET", f"/v1/payments/{payment_id}")

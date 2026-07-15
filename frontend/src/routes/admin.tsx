@@ -114,6 +114,8 @@ type Produto = {
   ativo: boolean;
   estoque: number;
   precos: Record<string, number>;
+  // undefined enquanto a migration das imagens não foi aplicada no banco
+  imagens?: string[];
 };
 
 // Converte "79,90" (ou "79.90") para centavos; null quando inválido.
@@ -141,6 +143,7 @@ function AdminPage() {
   const [filtro, setFiltro] = useState<"todos" | StatusKey>("todos");
   const [aba, setAba] = useState<"pedidos" | "produtos" | "usuarios">("pedidos");
   const [editando, setEditando] = useState<Produto | "novo" | null>(null);
+  const [fotosDeId, setFotosDeId] = useState<string | null>(null);
   const admin = checked && isAdmin();
   const staff = checked && isStaff();
 
@@ -410,6 +413,7 @@ function AdminPage() {
                           alternarAtivo.mutate({ id: produto.id, ativo: !produto.ativo })
                         }
                         onEditar={() => setEditando(produto)}
+                        onFotos={() => setFotosDeId(produto.id)}
                       />
                     ))}
                   </TableBody>
@@ -425,6 +429,18 @@ function AdminPage() {
                 onSalvo={invalidarProdutos}
               />
             )}
+
+            {fotosDeId !== null &&
+              (() => {
+                const produto = produtos.find((p) => p.id === fotosDeId);
+                return produto ? (
+                  <FotosDialog
+                    produto={produto}
+                    onFechar={() => setFotosDeId(null)}
+                    onAtualizado={invalidarProdutos}
+                  />
+                ) : null;
+              })()}
           </>
         )}
 
@@ -574,6 +590,7 @@ function ProdutoRow({
   alternandoAtivo,
   onAlternarAtivo,
   onEditar,
+  onFotos,
 }: {
   produto: Produto;
   salvandoEstoque: boolean;
@@ -581,6 +598,7 @@ function ProdutoRow({
   alternandoAtivo: boolean;
   onAlternarAtivo: () => void;
   onEditar: () => void;
+  onFotos: () => void;
 }) {
   const [valor, setValor] = useState(String(produto.estoque));
 
@@ -650,6 +668,14 @@ function ProdutoRow({
             className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
           >
             Editar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onFotos}
+            className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
+          >
+            Fotos
           </Button>
           <Button
             variant="outline"
@@ -868,6 +894,142 @@ function ProdutoDialog({
             className="rounded-none text-xs uppercase tracking-[0.2em]"
           >
             {salvar.isPending ? "Salvando…" : "Salvar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FotosDialog({
+  produto,
+  onFechar,
+  onAtualizado,
+}: {
+  produto: Produto;
+  onFechar: () => void;
+  onAtualizado: () => void;
+}) {
+  const imagens = produto.imagens ?? [];
+
+  const enviar = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return apiFetch(`/produtos/${produto.id}/imagens`, { method: "POST", body: form });
+    },
+    onSuccess: onAtualizado,
+  });
+
+  const remover = useMutation({
+    mutationFn: (url: string) =>
+      apiFetch(`/produtos/${produto.id}/imagens`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      }),
+    onSuccess: onAtualizado,
+  });
+
+  const tornarPrincipal = useMutation({
+    mutationFn: (url: string) =>
+      apiFetch(`/produtos/${produto.id}/imagens`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imagens: [url, ...imagens.filter((i) => i !== url)] }),
+      }),
+    onSuccess: onAtualizado,
+  });
+
+  const erro = [enviar.error, remover.error, tornarPrincipal.error]
+    .map((e) =>
+      e instanceof ApiError && e.detail
+        ? e.detail
+        : e
+          ? "Não foi possível salvar a alteração."
+          : null,
+    )
+    .find((mensagem) => mensagem !== null);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onFechar()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-none sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="serif">Fotos de {produto.nome}</DialogTitle>
+          <DialogDescription>
+            A primeira foto é a principal, exibida na vitrine. Enquanto o produto não tiver fotos
+            enviadas, o site usa as fotos embutidas (quando existem para este produto).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {imagens.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhuma foto enviada ainda.</p>
+          )}
+
+          {imagens.map((url, i) => (
+            <div key={url} className="flex items-center gap-3 border border-border p-2">
+              <img
+                src={url}
+                alt={`Foto ${i + 1} de ${produto.nome}`}
+                width={128}
+                height={128}
+                loading="lazy"
+                className="h-16 w-16 bg-secondary object-cover"
+              />
+              <span className="flex-1 text-xs uppercase tracking-[0.1em] text-muted-foreground">
+                {i === 0 ? "Principal" : `Foto ${i + 1}`}
+              </span>
+              {i > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={tornarPrincipal.isPending}
+                  onClick={() => tornarPrincipal.mutate(url)}
+                  className="rounded-none text-xs uppercase tracking-[0.1em]"
+                >
+                  Tornar principal
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={remover.isPending}
+                onClick={() => remover.mutate(url)}
+                className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
+              >
+                Remover
+              </Button>
+            </div>
+          ))}
+
+          <div className="space-y-2">
+            <Label htmlFor="foto-upload">Enviar nova foto (JPG, PNG ou WebP, até 5MB)</Label>
+            <Input
+              id="foto-upload"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={enviar.isPending}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) enviar.mutate(file);
+                e.target.value = "";
+              }}
+              className="rounded-none"
+            />
+            {enviar.isPending && <p className="text-sm text-muted-foreground">Enviando…</p>}
+          </div>
+
+          {erro && <p className="text-sm text-destructive">{erro}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={onFechar}
+            className="rounded-none text-xs uppercase tracking-[0.2em]"
+          >
+            Fechar
           </Button>
         </DialogFooter>
       </DialogContent>

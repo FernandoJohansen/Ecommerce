@@ -12,15 +12,29 @@ estrutura da API e RBAC básico já entregues)
 STRAGGLERS DE SPRINTS ANTERIORES
 --------------------------------
 
-Sprint 3 — Product System
-  [ ] Páginas de detalhe de produto (rota individual por produto)
-  [ ] Upload de imagens de produto (hoje só existe o bucket "avatars";
-      criar bucket de imagens de produto + endpoint de upload no admin)
-  [ ] Busca de produtos na vitrine (escopo "Search" do PDF; hoje só
-      existe filtro de status no admin)
-  [ ] Categorias na vitrine (escopo "Categories" do PDF; a API
-      GET /api/categorias existe, mas o frontend não usa categorias
-      em lugar nenhum — sem navegação/filtro por categoria)
+Sprint 3 — Product System: CONCLUÍDO ✔ — 14/07/2026
+  [x] Páginas de detalhe de produto: rota /produto/:slug (slug derivado do
+      nome, ex. /produto/difusor-de-vidro) com galeria de fotos, descrição,
+      preços por tamanho e os mesmos controles de compra do formulário
+      (componente compartilhado CompraProduto). Cards da vitrine agora
+      levam para a página de detalhe.
+  [x] Upload de imagens de produto: bucket público "produtos" + coluna
+      produtos.imagens (TEXT[], primeira = principal); endpoints staff-only
+      POST/PUT/DELETE /api/produtos/{id}/imagens (upload JPG/PNG/WebP até
+      5MB, reordenar/tornar principal, remover — apaga também do storage).
+      Admin: botão "Fotos" na aba Produtos abre o gerenciador. Vitrine e
+      formulário usam as fotos enviadas quando existem; sem elas, caem nas
+      fotos embutidas (frontend/src/lib/produto-imagens.ts).
+  [x] Busca de produtos na vitrine: campo de busca na seção Coleção,
+      client-side sobre nome+descrição, sem distinção de acentos/caixa.
+  [x] Categorias na vitrine: chips de filtro alimentados por
+      GET /api/categorias (derivadas da coluna "tag" dos produtos).
+      A vitrine inteira agora é renderizada do catálogo da API (inclui
+      Varetas, antes de fora do grid; produto sem foto ganha placeholder).
+  [ ] ATIVAÇÃO: aplicar migrations/2026-07-14_sprint3_produtos_imagens.sql
+      no banco de produção (coluna imagens + bucket "produtos"). Sem ela o
+      site segue funcionando com as fotos embutidas, mas o upload de fotos
+      no admin falha.
 
 Sprint 4 — Cart & CMS: CONCLUÍDO ✔ (estoque em 10/07/2026)
   [x] CRUD de produtos no admin — 14/07/2026 (escopo "Admin CRUD /
@@ -165,8 +179,65 @@ Sprint 6 — PIX Integration (sprint atual pelo calendário)
          Acesso à API Pix > Gerar Credenciais — ou por e-mail:
          integracoes_pix@sicredi.com.br)
 
-SPRINTS FUTUROS (escopo do Ecommerce.pdf, nada iniciado)
---------------------------------------------------------
+Sprint 6b — Cartão de crédito + Boleto via Mercado Pago
+  [x] Implementação completa — 14/07/2026: cliente da API do MP
+      (backend/app/services/mercadopago_client.py, Bearer token +
+      X-Idempotency-Key), POST /api/pagamento/cartao e /boleto,
+      GET /api/pagamento/mp/{id} (polling), GET /api/pagamento/metodos e
+      /resumo/{pedido_id}; webhook POST /api/pagamento/webhook/mercadopago
+      (valida x-signature quando MERCADO_PAGO_WEBHOOK_SECRET está setado e
+      SEMPRE reconfere o pagamento direto no MP antes de confirmar).
+      Tabela pagamentos generalizada (metodo pix/cartao/boleto,
+      mp_payment_id, detalhes JSONB; txid agora nullable) e pedidos.cpf
+      (migrations/2026-07-14_sprint7_mercado_pago.sql). CPF obrigatório no
+      checkout (dígitos verificadores validados no front e no back).
+      Frontend: seletor de método em /pagamento/:pedidoId (PIX destacado
+      como recomendado), cartão via Card Payment Brick
+      (@mercadopago/sdk-react — o número do cartão nunca passa pelo nosso
+      backend; recusa mostra o motivo e permite nova tentativa; até 12x,
+      MERCADO_PAGO_MAX_PARCELAS), boleto bolbradesco com vencimento em 3
+      dias (linha digitável + PDF + polling de 30s). Valor da transação é
+      sempre recalculado no servidor; status nativo do PSP fica no banco e
+      a API normaliza em "situacao".
+  ATENÇÃO: estorno/chargeback NÃO reverte o pedido automaticamente — só
+  atualiza o pagamento (status refunded/charged_back); tratar manualmente.
+  ROTEIRO DE ATIVAÇÃO EM PRODUÇÃO (na ordem):
+
+  [ ] 0. Aplicar migrations/2026-07-14_sprint7_mercado_pago.sql no banco de
+         produção (psql via session pooler). Sem ela o webhook e as rotas
+         /cartao, /boleto e /resumo quebram (coluna mp_payment_id/cpf não
+         existe). O restante do site segue funcionando.
+
+  [ ] 1. Criar a conta/aplicação no Mercado Pago (conta vendedor da
+         Carolina): mercadopago.com.br/developers > Suas integrações >
+         Criar aplicação > Pagamentos online > CheckoutBricks.
+
+  [ ] 2. Copiar as credenciais de PRODUÇÃO da aplicação:
+         - Access Token (APP_USR-...) → MERCADO_PAGO_ACCESS_TOKEN no
+           backend/.env
+         - Public Key → VITE_MERCADO_PAGO_PUBLIC_KEY no frontend
+           (variável de build no Cloudflare)
+         Para testar antes, usar as credenciais de TESTE (TEST-...) e os
+         cartões de teste (5031 4332 1540 6351, titular APRO aprova / OTHE
+         recusa, CPF 12345678909).
+
+  [ ] 3. Preencher MERCADO_PAGO_WEBHOOK_URL=
+         https://SEU-BACKEND/api/pagamento/webhook/mercadopago
+         (enviada como notification_url em cada pagamento — não precisa
+         configurar nada no painel para funcionar).
+
+  [ ] 4. (Recomendado) Configurar também o webhook no painel MP
+         (Webhooks > evento "Pagamentos" > mesma URL) só para obter a
+         assinatura secreta → MERCADO_PAGO_WEBHOOK_SECRET (habilita a
+         validação x-signature das notificações).
+
+  [ ] 5. Teste ponta a ponta em produção: pedido barato (Varetas, R$ 8,00)
+         pago no cartão e um boleto gerado/pago; conferir pedido "Pago" no
+         admin. Completar a homologação da integração no painel do MP se
+         for exigida (fluxo "Qualidade da integração").
+
+SPRINTS FUTUROS (escopo do Ecommerce.pdf)
+-----------------------------------------
 
 Sprint 7 — Shipping (agosto)
   [ ] Integração Melhor Envio
@@ -177,7 +248,10 @@ Sprint 7 — Shipping (agosto)
 
 Sprint 8 — NFe (agosto)
   [ ] Integração eNotas ou Nuvem Fiscal
-  [ ] Validação de CPF/CNPJ (checkout não coleta nenhum dos dois hoje)
+  [x] Validação de CPF — 14/07/2026: checkout coleta CPF obrigatório com
+      dígitos verificadores validados no front e no back (Sprint 6b);
+      fica em pedidos.cpf
+  [ ] Suporte a CNPJ (compra como pessoa jurídica; hoje só CPF)
   [ ] Geração de nota fiscal
   [ ] Armazenamento de DANFE/XML/PDF
   [ ] Fluxos fiscais
@@ -192,7 +266,9 @@ Sprint 9 — Order Management (setembro) — parcialmente entregue
 Sprint 10 — Operational Hardening (setembro)
   [ ] Logs de auditoria
   [ ] Sistemas de retry
-  [ ] Idempotência de webhooks
+  [~] Idempotência de webhooks (os webhooks de pagamento PIX e Mercado
+      Pago já são idempotentes e reconferem o status no PSP; revisar
+      quando existirem outros webhooks)
   [ ] Validação de permissões
   [ ] Revisão de segurança
   [ ] Backups
