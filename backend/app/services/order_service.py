@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 
 from app.core.config import MELHOR_ENVIO_ENABLED
+from app.core.lgpd import mascarar_documento
 from app.repositories.order_repository import (
     delete_pedido,
     get_all_pedidos,
@@ -20,6 +21,14 @@ from app.services.product_service import (
     preco_unitario,
     repor_estoque,
 )
+
+
+def _com_documento_mascarado(pedido: dict) -> dict:
+    """Toda saída de pedido pela API passa por aqui (LGPD): o cpf_cnpj em
+    claro fica restrito ao banco e às chamadas ao PSP."""
+    if "cpf_cnpj" in pedido:
+        return {**pedido, "cpf_cnpj": mascarar_documento(pedido["cpf_cnpj"])}
+    return pedido
 
 
 def create_pedido(pedido: PedidoCreate, user_id: str | None = None) -> dict:
@@ -151,15 +160,15 @@ def criar_pedido(
         _desfazer_estoque()
         raise
 
-    return {**pedido, "itens": itens_salvos}
+    return _com_documento_mascarado({**pedido, "itens": itens_salvos})
 
 
 def list_pedidos() -> list[dict]:
-    return get_all_pedidos()
+    return [_com_documento_mascarado(p) for p in get_all_pedidos()]
 
 
 def list_pedidos_do_usuario(user_id: str) -> list[dict]:
-    return get_pedidos_by_user(user_id)
+    return [_com_documento_mascarado(p) for p in get_pedidos_by_user(user_id)]
 
 
 def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
@@ -170,7 +179,7 @@ def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
     result = update_pedido(pedido_id, data)
     if not result:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    return result
+    return _com_documento_mascarado(result)
 
 
 # Pedidos que representam venda concretizada: excluir apagaria também os
@@ -191,4 +200,4 @@ def remove_pedido(pedido_id: str) -> dict:
     result = delete_pedido(pedido_id)
     if not result:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    return result
+    return _com_documento_mascarado(result)

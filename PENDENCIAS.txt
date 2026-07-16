@@ -397,7 +397,20 @@ Sprint 10 — Operational Hardening (setembro) — adiantado em parte
           estranha continuam bloqueados. Só em produção (dev usa HMR).
           VITE_API_URL entra no connect-src automaticamente no build.
       Achados restantes (fazer neste sprint):
-      [ ] LGPD: mascarar CPF/CNPJ no admin e definir retenção
+      [x] LGPD: CPF/CNPJ mascarado — 16/07/2026: nenhuma resposta da API
+          devolve o documento em claro (padrão gov.br: ***.456.789-** /
+          **.345.678/0001-**; app/core/lgpd.py, aplicado em todas as
+          saídas de pedido do order_service — listagem staff, meus
+          pedidos, criação, atualização e exclusão). Documento completo
+          fica só no banco e nas chamadas ao Mercado Pago (que exige o
+          real). Admin mostra o documento mascarado sob o nome do
+          cliente na aba Pedidos.
+      [ ] LGPD: definir retenção de dados pessoais — DISCUTIR antes de
+          implementar: por quanto tempo guardar pedidos/documentos
+          (obrigações fiscais pedem ~5 anos para dados de venda) e qual
+          a rotina de expurgo/anonimização (ex.: anonimizar nome/
+          telefone/endereço/documento de pedidos antigos mantendo os
+          números para o financeiro). Decisão de política com a Carolina.
       Pendências do usuário (painéis): confirmação de e-mail ativa no
       Supabase; rotacionar a senha do pooler (exposta em chat 15/07).
   [ ] Backups

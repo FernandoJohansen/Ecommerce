@@ -75,6 +75,8 @@ type Pedido = {
   bairro: string | null;
   cidade: string | null;
   estado: string | null;
+  // Mascarado pelo backend (LGPD): ***.456.789-** / **.345.678/0001-**
+  cpf_cnpj: string | null;
   observacoes: string | null;
   total_centavos: number;
   frete_centavos: number;
@@ -602,7 +604,14 @@ function AdminPage() {
                             "—"
                           )}
                         </TableCell>
-                        <TableCell>{pedido.nome_cliente ?? "—"}</TableCell>
+                        <TableCell>
+                          {pedido.nome_cliente ?? "—"}
+                          {pedido.cpf_cnpj ? (
+                            <span className="block whitespace-nowrap text-xs text-muted-foreground">
+                              {pedido.cpf_cnpj}
+                            </span>
+                          ) : null}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {pedido.telefone ?? "—"}
                         </TableCell>
