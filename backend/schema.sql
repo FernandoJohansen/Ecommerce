@@ -213,6 +213,28 @@ CREATE TABLE user_roles (
 
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 
+-- ── Auditoria ────────────────────────────────────────────────────────────────
+-- Quem mudou o quê e quando (ações de equipe/admin). Gravado pelo backend
+-- (service role); leitura só pelo endpoint admin. Backend-only: RLS sem
+-- policies. Migration: migrations/2026-07-16_sprint10_audit_log.sql
+
+CREATE TABLE audit_log (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID,
+  -- Snapshot do e-mail: continua legível mesmo se a conta sumir depois
+  user_email  TEXT,
+  -- Ex.: 'pedido.atualizar', 'produto.estoque', 'usuario.role'
+  acao        TEXT        NOT NULL,
+  alvo_tipo   TEXT        NOT NULL,
+  alvo_id     TEXT,
+  detalhes    JSONB,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX audit_log_created_idx ON audit_log (created_at DESC);
+
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+
 -- ── Estoque ──────────────────────────────────────────────────────────────────
 -- Atomic stock adjustment. Called by the backend (service role) with a
 -- negative delta when an order is created, or a positive delta to restock /

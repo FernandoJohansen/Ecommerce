@@ -343,7 +343,14 @@ Sprint 9 — Order Management (setembro) — adiantado, quase completo
   [ ] Visualização de notas fiscais (depende do Sprint 8 — NFe)
 
 Sprint 10 — Operational Hardening (setembro) — adiantado em parte
-  [ ] Logs de auditoria
+  [x] Logs de auditoria — 16/07/2026: tabela audit_log (quem/ação/alvo/
+      detalhes/quando; backend-only, RLS sem policies) gravada em toda
+      mutação de staff/admin: status/rastreio/exclusão de pedido, CRUD de
+      produto (estoque e fotos inclusos), papel de usuário e registro do
+      webhook PIX. Registro é best-effort (nunca derruba a ação principal).
+      Leitura: GET /api/admin/auditoria (admin) + aba "Auditoria" no admin.
+      ATIVAÇÃO: [ ] aplicar migrations/2026-07-16_sprint10_audit_log.sql
+      no banco de produção (psql via session pooler).
   [ ] Sistemas de retry
   [~] Idempotência de webhooks (os webhooks de pagamento PIX e Mercado
       Pago já são idempotentes e reconferem o status no PSP; revisar

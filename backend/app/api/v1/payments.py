@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.core.config import MERCADO_PAGO_WEBHOOK_SECRET
 from app.core.ratelimit import limiter
 from app.dependencies.auth import get_staff_user
+from app.services.audit_service import registrar_auditoria
 from app.schemas.payment import (
     CobrancaPixCreate,
     CobrancaPixResponse,
@@ -148,8 +149,10 @@ async def post_webhook_mercadopago(request: Request):
 
 
 @router.put("/webhook")
-def put_webhook(_user=Depends(get_staff_user)):
-    return registrar_webhook()
+def put_webhook(user=Depends(get_staff_user)):
+    result = registrar_webhook()
+    registrar_auditoria(user, "pix.webhook.registrar", "webhook", None, result)
+    return result
 
 
 @router.get("/webhook")

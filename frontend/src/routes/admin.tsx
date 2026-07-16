@@ -108,6 +108,16 @@ type Usuario = {
   created_at: string | null;
 };
 
+type EventoAuditoria = {
+  id: string;
+  user_email: string | null;
+  acao: string;
+  alvo_tipo: string;
+  alvo_id: string | null;
+  detalhes: Record<string, unknown> | null;
+  created_at: string;
+};
+
 type Produto = {
   id: string;
   nome: string;
@@ -145,7 +155,7 @@ function AdminPage() {
   const queryClient = useQueryClient();
   const [checked, setChecked] = useState(false);
   const [filtro, setFiltro] = useState<"todos" | StatusKey>("todos");
-  const [aba, setAba] = useState<"pedidos" | "produtos" | "usuarios">("pedidos");
+  const [aba, setAba] = useState<"pedidos" | "produtos" | "usuarios" | "auditoria">("pedidos");
   const [editando, setEditando] = useState<Produto | "novo" | null>(null);
   const [fotosDeId, setFotosDeId] = useState<string | null>(null);
   const admin = checked && isAdmin();
@@ -329,9 +339,9 @@ function AdminPage() {
         </div>
 
         {staff && (
-          <div className="mb-8 flex gap-2">
+          <div className="mb-8 flex flex-wrap gap-2">
             {(admin
-              ? (["pedidos", "produtos", "usuarios"] as const)
+              ? (["pedidos", "produtos", "usuarios", "auditoria"] as const)
               : (["pedidos", "produtos"] as const)
             ).map((tab) => (
               <button
@@ -343,11 +353,20 @@ function AdminPage() {
                     : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
                 }`}
               >
-                {tab === "pedidos" ? "Pedidos" : tab === "produtos" ? "Produtos" : "Usuários"}
+                {
+                  {
+                    pedidos: "Pedidos",
+                    produtos: "Produtos",
+                    usuarios: "Usuários",
+                    auditoria: "Auditoria",
+                  }[tab]
+                }
               </button>
             ))}
           </div>
         )}
+
+        {aba === "auditoria" && admin && <AuditoriaTab />}
 
         {aba === "usuarios" && admin && (
           <>
@@ -673,6 +692,92 @@ function AdminPage() {
         )}
       </div>
     </div>
+  );
+}
+
+const ACOES_AUDITORIA: Record<string, string> = {
+  "pedido.atualizar": "Pedido atualizado",
+  "pedido.excluir": "Pedido excluído",
+  "produto.criar": "Produto criado",
+  "produto.atualizar": "Produto atualizado",
+  "produto.estoque": "Estoque ajustado",
+  "produto.imagem.adicionar": "Foto adicionada",
+  "produto.imagem.reordenar": "Fotos reordenadas",
+  "produto.imagem.remover": "Foto removida",
+  "usuario.role": "Papel alterado",
+  "pix.webhook.registrar": "Webhook PIX registrado",
+};
+
+function AuditoriaTab() {
+  const {
+    data: eventos = [],
+    isLoading,
+    error,
+  } = useQuery<EventoAuditoria[]>({
+    queryKey: ["auditoria"],
+    queryFn: () => apiFetch("/admin/auditoria"),
+  });
+
+  return (
+    <>
+      {isLoading && <p className="text-sm text-muted-foreground">Carregando auditoria…</p>}
+
+      {error != null && (
+        <p className="text-sm text-destructive">
+          Não foi possível carregar a auditoria (a migration do audit_log já foi aplicada?).
+        </p>
+      )}
+
+      {!isLoading && error == null && eventos.length === 0 && (
+        <p className="text-sm text-muted-foreground">Nenhuma ação registrada ainda.</p>
+      )}
+
+      {eventos.length > 0 && (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Usuário</TableHead>
+                <TableHead>Ação</TableHead>
+                <TableHead>Alvo</TableHead>
+                <TableHead>Detalhes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {eventos.map((evento) => (
+                <TableRow key={evento.id}>
+                  <TableCell className="whitespace-nowrap">
+                    {new Date(evento.created_at).toLocaleString("pt-BR")}
+                  </TableCell>
+                  <TableCell>{evento.user_email ?? "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {ACOES_AUDITORIA[evento.acao] ?? evento.acao}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {evento.alvo_tipo}
+                    {evento.alvo_id ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {evento.alvo_id.slice(0, 8)}…
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="max-w-[360px]">
+                    {evento.detalhes ? (
+                      <code className="block break-all text-xs text-muted-foreground">
+                        {JSON.stringify(evento.detalhes)}
+                      </code>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </>
   );
 }
 

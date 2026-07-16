@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Request
 from app.core.ratelimit import limiter
 from app.dependencies.auth import get_current_user, get_optional_user, get_staff_user
 from app.schemas.order import PedidoCreate, PedidoResponse, PedidoUpdate
+from app.services.audit_service import registrar_auditoria
 from app.services.order_service import (
     create_pedido,
     list_pedidos,
@@ -34,10 +35,26 @@ def get_meus_pedidos(user=Depends(get_current_user)):
 
 
 @router.patch("/pedidos/{pedido_id}")
-def patch_pedido(pedido_id: str, pedido: PedidoUpdate, _user=Depends(get_staff_user)):
-    return update_pedido_status(pedido_id, pedido)
+def patch_pedido(pedido_id: str, pedido: PedidoUpdate, user=Depends(get_staff_user)):
+    result = update_pedido_status(pedido_id, pedido)
+    registrar_auditoria(
+        user, "pedido.atualizar", "pedido", pedido_id, pedido.model_dump(exclude_unset=True)
+    )
+    return result
 
 
 @router.delete("/pedidos/{pedido_id}")
-def del_pedido(pedido_id: str, _user=Depends(get_staff_user)):
-    return remove_pedido(pedido_id)
+def del_pedido(pedido_id: str, user=Depends(get_staff_user)):
+    result = remove_pedido(pedido_id)
+    registrar_auditoria(
+        user,
+        "pedido.excluir",
+        "pedido",
+        pedido_id,
+        {
+            "nome_cliente": result.get("nome_cliente"),
+            "total_centavos": result.get("total_centavos"),
+            "status": result.get("status"),
+        },
+    )
+    return result
