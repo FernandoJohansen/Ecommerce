@@ -4,6 +4,7 @@ from app.core.config import MELHOR_ENVIO_ENABLED
 from app.repositories.order_repository import (
     delete_pedido,
     get_all_pedidos,
+    get_pedido_by_id,
     get_pedidos_by_user,
     insert_pedido,
     insert_pedido_itens,
@@ -172,7 +173,21 @@ def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
     return result
 
 
+# Pedidos que representam venda concretizada: excluir apagaria também os
+# registros de pagamento (ON DELETE CASCADE) — histórico financeiro some.
+STATUS_PROTEGIDOS_EXCLUSAO = {"pago", "enviado", "concluido"}
+
+
 def remove_pedido(pedido_id: str) -> dict:
+    pedido = get_pedido_by_id(pedido_id)
+    if not pedido:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    if pedido["status"] in STATUS_PROTEGIDOS_EXCLUSAO:
+        raise HTTPException(
+            status_code=409,
+            detail="Pedido pago não pode ser excluído (histórico de pagamento); "
+            "use o status Cancelado se necessário.",
+        )
     result = delete_pedido(pedido_id)
     if not result:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")

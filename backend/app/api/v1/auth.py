@@ -8,6 +8,7 @@ from supabase_auth.errors import AuthApiError
 
 from app.core.config import SUPABASE_KEY, SUPABASE_URL
 from app.core.database import supabase, supabase_auth
+from app.core.imagem import tipo_imagem_real
 from app.core.ratelimit import limiter
 from app.core.roles import ROLE_ADMIN
 from app.core.security import bearer_scheme
@@ -155,13 +156,16 @@ async def upload_avatar(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     user=Depends(get_current_user),
 ):
-    ext = AVATAR_TYPES.get(file.content_type or "")
+    content = await file.read()
+    # Valida pelos magic bytes, não pelo Content-Type do cliente; o tipo
+    # detectado é o que vai para o storage.
+    tipo_real = tipo_imagem_real(content)
+    ext = AVATAR_TYPES.get(tipo_real or "")
     if not ext:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Formato inválido. Envie uma imagem JPG, PNG ou WebP.",
         )
-    content = await file.read()
     if len(content) > AVATAR_MAX_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -171,7 +175,7 @@ async def upload_avatar(
     path = f"{user.id}.{ext}"
     try:
         supabase.storage.from_(AVATAR_BUCKET).upload(
-            path, content, {"content-type": file.content_type, "upsert": "true"}
+            path, content, {"content-type": tipo_real, "upsert": "true"}
         )
     except Exception:
         logger.exception("Avatar upload failed for user %s", user.id)

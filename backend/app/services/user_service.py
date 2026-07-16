@@ -10,10 +10,15 @@ from app.schemas.user import UserWithRole
 def list_users() -> list[UserWithRole]:
     users = supabase.auth.admin.list_users()
     roles = get_all_user_roles()
+    # O bootstrap por ADMIN_EMAILS só vale enquanto não há admin de verdade
+    # (mesma regra do resolve_role)
+    bootstrap_ativo = ROLE_ADMIN not in roles.values()
     result = []
     for user in users:
         email = (user.email or "").lower()
-        role = roles.get(user.id) or (ROLE_ADMIN if email in ADMIN_EMAILS else ROLE_CUSTOMER)
+        role = roles.get(user.id) or (
+            ROLE_ADMIN if bootstrap_ativo and email in ADMIN_EMAILS else ROLE_CUSTOMER
+        )
         metadata = user.user_metadata or {}
         result.append(
             UserWithRole(

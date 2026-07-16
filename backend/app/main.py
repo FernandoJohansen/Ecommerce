@@ -7,7 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1 import auth, cart, categories, frete, orders, payments, products, users
-from app.core.config import ALLOWED_ORIGINS, MERCADO_PAGO_ENABLED, SICREDI_ENABLED
+from app.core.config import (
+    ALLOWED_ORIGINS,
+    MERCADO_PAGO_ENABLED,
+    MERCADO_PAGO_WEBHOOK_SECRET,
+    SICREDI_ENABLED,
+)
 from app.core.ratelimit import limiter, rate_limit_handler
 from app.services.expiracao_service import expirar_pedidos_nao_pagos
 
@@ -27,6 +32,13 @@ async def _expirar_pedidos_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    if MERCADO_PAGO_ENABLED and not MERCADO_PAGO_WEBHOOK_SECRET:
+        logger.warning(
+            "MERCADO_PAGO_WEBHOOK_SECRET não configurado: o webhook do Mercado "
+            "Pago aceita chamadas sem assinatura (o status é sempre reconferido "
+            "no MP, mas configure o secret no painel de Webhooks — ver "
+            "PENDENCIAS.txt, Sprint 6b passo 4)."
+        )
     # Sem PSP configurado, todo pedido é negociado manualmente pelo WhatsApp e
     # não deve expirar (comportamento de antes do Sprint 6).
     task = (

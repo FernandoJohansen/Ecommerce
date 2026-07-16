@@ -53,7 +53,7 @@ async def post_imagem(
     produto_id: str, file: UploadFile = File(...), _user=Depends(get_staff_user)
 ):
     content = await file.read()
-    return adicionar_imagem(produto_id, content, file.content_type)
+    return adicionar_imagem(produto_id, content)
 
 
 @router.put("/produtos/{produto_id}/imagens")

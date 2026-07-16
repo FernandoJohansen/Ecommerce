@@ -365,19 +365,26 @@ Sprint 10 — Operational Hardening (setembro) — adiantado em parte
         pedido e checkout 5/min + 30/h, cotação de frete 20/min,
         criação de pagamento 10/min. Contadores em memória (instância
         única); resposta 429 com detail em pt-BR.
+      Corrigidos em 16/07/2026 (segunda leva):
+      [x] Bootstrap ADMIN_EMAILS agora é one-shot: só concede admin
+          enquanto NÃO existe admin em user_roles; depois disso a lista
+          do .env fica inerte (registrar o e-mail da lista antes da dona
+          não dá mais admin). Ainda assim: conferir no painel Supabase se
+          a confirmação de e-mail está ativa (pendência do usuário).
+      [x] DELETE de pedido pago/enviado/concluído bloqueado (409) — antes
+          apagava até os registros de pagamento via CASCADE; admin
+          esconde o botão Excluir nesses status (usar Cancelado)
+      [x] Uploads de imagem validados por magic bytes (JPEG/PNG/WebP;
+          app/core/imagem.py); o tipo detectado — e não o Content-Type
+          do cliente — vai para o storage (avatar e fotos de produto)
+      [x] Aviso alto no startup quando Mercado Pago está ativo sem
+          MERCADO_PAGO_WEBHOOK_SECRET (webhook aceita chamada sem
+          assinatura; o status ainda é reconferido no MP)
       Achados restantes (fazer neste sprint):
-      [ ] Conferir no painel Supabase se a confirmação de e-mail está
-          ativa e zerar ADMIN_EMAILS depois que os papéis reais
-          existirem em user_roles (bootstrap concede admin pelo e-mail)
-      [ ] Bloquear DELETE de pedido pago/enviado/concluído (hoje apaga
-          até os registros de pagamento via CASCADE) — junto com os
-          logs de auditoria
-      [ ] Validar magic bytes nos uploads de imagem (hoje só o header
-          Content-Type)
-      [ ] Tratar MERCADO_PAGO_WEBHOOK_SECRET como obrigatório na
-          ativação (hoje a assinatura só é validada se setado)
       [ ] CSP no frontend (token em localStorage + XSS = sessão roubada)
       [ ] LGPD: mascarar CPF/CNPJ no admin e definir retenção
+      Pendências do usuário (painéis): confirmação de e-mail ativa no
+      Supabase; rotacionar a senha do pooler (exposta em chat 15/07).
   [ ] Backups
 
 Sprint 11 — QA & Optimization (outubro)

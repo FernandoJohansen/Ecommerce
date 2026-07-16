@@ -96,6 +96,10 @@ const enderecoResumo = (pedido: Pedido) => {
 // Receita conta pedidos que foram de fato pagos (inclui já enviados/concluídos)
 const RECEITA_STATUS = new Set<string>(["pago", "enviado", "concluido"]);
 
+// Pedido pago não pode ser excluído (o backend recusa com 409 — apagaria o
+// histórico de pagamento); cancele em vez de excluir
+const podeExcluir = (pedido: Pedido) => !RECEITA_STATUS.has(pedido.status);
+
 type Usuario = {
   id: string;
   email: string;
@@ -618,40 +622,46 @@ function AdminPage() {
                           </Select>
                         </TableCell>
                         <TableCell className="text-right">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
-                              >
-                                Excluir
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="rounded-none">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="serif">
-                                  Excluir pedido?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  O pedido de {pedido.nome_cliente ?? "cliente sem nome"} (
-                                  {formatarPreco(pedido.total_centavos)}) será removido
-                                  permanentemente.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel className="rounded-none">
-                                  Cancelar
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => excluirPedido.mutate(pedido.id)}
-                                  className="rounded-none"
+                          {podeExcluir(pedido) ? (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
                                 >
                                   Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="rounded-none">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="serif">
+                                    Excluir pedido?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    O pedido de {pedido.nome_cliente ?? "cliente sem nome"} (
+                                    {formatarPreco(pedido.total_centavos)}) será removido
+                                    permanentemente.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="rounded-none">
+                                    Cancelar
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => excluirPedido.mutate(pedido.id)}
+                                    className="rounded-none"
+                                  >
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          ) : (
+                            <span className="text-xs uppercase tracking-[0.1em] text-muted-foreground">
+                              —
+                            </span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

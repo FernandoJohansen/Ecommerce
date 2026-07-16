@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
+from app.core.imagem import tipo_imagem_real
 from app.repositories.product_repository import (
     PRODUTO_IMAGENS_BUCKET,
     adjust_estoque,
@@ -122,9 +123,12 @@ def _produto_ou_404(produto_id: str) -> dict:
     return produto
 
 
-def adicionar_imagem(produto_id: str, content: bytes, content_type: str | None) -> dict:
+def adicionar_imagem(produto_id: str, content: bytes) -> dict:
     produto = _produto_ou_404(produto_id)
-    ext = IMAGEM_TYPES.get(content_type or "")
+    # Valida pelos magic bytes, não pelo Content-Type do cliente; o tipo
+    # detectado é o que vai para o storage.
+    tipo_real = tipo_imagem_real(content)
+    ext = IMAGEM_TYPES.get(tipo_real or "")
     if not ext:
         raise HTTPException(
             status_code=400, detail="Formato inválido. Envie uma imagem JPG, PNG ou WebP."
@@ -134,7 +138,7 @@ def adicionar_imagem(produto_id: str, content: bytes, content_type: str | None) 
 
     path = f"{produto_id}/{uuid4().hex}.{ext}"
     try:
-        url = upload_imagem_storage(path, content, content_type)
+        url = upload_imagem_storage(path, content, tipo_real)
     except Exception:
         logger.exception("Upload de imagem falhou para o produto %s", produto_id)
         raise HTTPException(status_code=500, detail="Não foi possível enviar a imagem.")
