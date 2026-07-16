@@ -55,6 +55,11 @@ FRETE_PACOTE_ALTURA_CM: int = int(os.getenv("FRETE_PACOTE_ALTURA_CM", "15"))
 FRETE_PACOTE_LARGURA_CM: int = int(os.getenv("FRETE_PACOTE_LARGURA_CM", "20"))
 FRETE_PACOTE_COMPRIMENTO_CM: int = int(os.getenv("FRETE_PACOTE_COMPRIMENTO_CM", "20"))
 MELHOR_ENVIO_ENABLED: bool = bool(MELHOR_ENVIO_TOKEN and FRETE_CEP_ORIGEM)
+# Pedido 'novo' sem pagamento aprovado é cancelado (com estoque devolvido)
+# depois deste prazo. A varredura só roda com alguma integração de pagamento
+# ativa — sem PSP, os pedidos são negociados manualmente e não expiram.
+PEDIDO_EXPIRA_HORAS: int = int(os.getenv("PEDIDO_EXPIRA_HORAS", "24"))
+
 ADMIN_EMAILS: set[str] = {
     email.strip().lower() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip()
 }

@@ -4,6 +4,7 @@ import hmac
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.config import MERCADO_PAGO_WEBHOOK_SECRET
+from app.core.ratelimit import limiter
 from app.dependencies.auth import get_staff_user
 from app.schemas.payment import (
     CobrancaPixCreate,
@@ -50,8 +51,12 @@ def get_pix():
     return get_pix_info()
 
 
+# Criação de pagamento é pública (convidado) e repassada ao PSP — limite por
+# IP contra spam de cobranças. Os GETs de polling ficam sem limite (o
+# frontend consulta a cada 5s, legitimamente).
 @router.post("/pix", response_model=CobrancaPixResponse, status_code=201)
-def post_cobranca_pix(body: CobrancaPixCreate):
+@limiter.limit("10/minute")
+def post_cobranca_pix(request: Request, body: CobrancaPixCreate):
     return criar_cobranca_pix(body.pedido_id)
 
 
@@ -61,12 +66,14 @@ def get_cobranca_pix(txid: str):
 
 
 @router.post("/cartao", response_model=PagamentoMpResponse, status_code=201)
-def post_pagamento_cartao(body: PagamentoCartaoCreate):
+@limiter.limit("10/minute")
+def post_pagamento_cartao(request: Request, body: PagamentoCartaoCreate):
     return criar_pagamento_cartao(body)
 
 
 @router.post("/boleto", response_model=PagamentoMpResponse, status_code=201)
-def post_pagamento_boleto(body: PagamentoBoletoCreate):
+@limiter.limit("10/minute")
+def post_pagamento_boleto(request: Request, body: PagamentoBoletoCreate):
     return criar_pagamento_boleto(body)
 
 

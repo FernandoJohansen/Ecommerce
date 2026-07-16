@@ -37,9 +37,34 @@ def get_pedidos_by_user(user_id: str) -> list[dict]:
     return result.data
 
 
+def get_pedidos_novos_antes(cutoff_iso: str) -> list[dict]:
+    """Pedidos ainda 'novo' criados antes do instante dado (candidatos a expirar)."""
+    result = (
+        supabase.table("pedidos")
+        .select("*, itens:pedido_itens(*)")
+        .eq("status", "novo")
+        .lt("created_at", cutoff_iso)
+        .execute()
+    )
+    return result.data or []
+
+
 def update_pedido(pedido_id: str, data: dict) -> dict:
     result = supabase.table("pedidos").update(data).eq("id", pedido_id).execute()
     return result.data[0] if result.data else {}
+
+
+def update_pedido_se_status(pedido_id: str, status_atual: str, data: dict) -> dict | None:
+    """Atualiza somente se o pedido ainda estiver no status esperado; None quando
+    outro processo mudou o status antes (evita corrida com webhook/admin)."""
+    result = (
+        supabase.table("pedidos")
+        .update(data)
+        .eq("id", pedido_id)
+        .eq("status", status_atual)
+        .execute()
+    )
+    return result.data[0] if result.data else None
 
 
 def delete_pedido(pedido_id: str) -> dict:

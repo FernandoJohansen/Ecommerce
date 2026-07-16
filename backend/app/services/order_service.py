@@ -34,6 +34,20 @@ def create_pedido(pedido: PedidoCreate, user_id: str | None = None) -> dict:
     )
 
 
+def quantidades_por_produto(itens: list[dict]) -> dict[str, int]:
+    """Estoque consumido pelos itens, por produto. Um item "com refil" também
+    consome estoque do produto Refil. Usado na reserva (criação do pedido) e
+    na devolução (expiração) — os dois lados precisam ser espelhos exatos."""
+    por_produto: dict[str, int] = {}
+    for item in itens:
+        por_produto[item["produto_nome"]] = (
+            por_produto.get(item["produto_nome"], 0) + item["quantidade"]
+        )
+        if item["refil"] and item["produto_nome"] != REFIL_PRODUTO:
+            por_produto[REFIL_PRODUTO] = por_produto.get(REFIL_PRODUTO, 0) + item["quantidade"]
+    return por_produto
+
+
 def criar_pedido(
     itens: list[dict],
     nome_cliente: str,
@@ -87,14 +101,7 @@ def criar_pedido(
 
     # Reserve stock for the whole order before writing anything; if one
     # product falls short, put back what was already taken and abort.
-    # Um item "com refil" também consome estoque do produto Refil.
-    por_produto: dict[str, int] = {}
-    for item in itens:
-        por_produto[item["produto_nome"]] = (
-            por_produto.get(item["produto_nome"], 0) + item["quantidade"]
-        )
-        if item["refil"] and item["produto_nome"] != REFIL_PRODUTO:
-            por_produto[REFIL_PRODUTO] = por_produto.get(REFIL_PRODUTO, 0) + item["quantidade"]
+    por_produto = quantidades_por_produto(itens)
 
     baixados: list[tuple[str, int]] = []
 

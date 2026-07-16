@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
+from app.core.ratelimit import limiter
 from app.dependencies.auth import get_current_user, get_optional_user, get_staff_user
 from app.schemas.order import PedidoCreate, PedidoResponse, PedidoUpdate
 from app.services.order_service import (
@@ -13,8 +14,11 @@ from app.services.order_service import (
 router = APIRouter()
 
 
+# Endpoint público (compra de convidado) que reserva estoque — limite por IP
+# contra criação de pedidos em massa
 @router.post("/pedidos", response_model=PedidoResponse, status_code=201)
-def post_pedido(pedido: PedidoCreate, user=Depends(get_optional_user)):
+@limiter.limit("5/minute;30/hour")
+def post_pedido(request: Request, pedido: PedidoCreate, user=Depends(get_optional_user)):
     return create_pedido(pedido, user_id=user.id if user else None)
 
 

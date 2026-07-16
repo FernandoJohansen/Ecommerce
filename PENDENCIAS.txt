@@ -125,6 +125,10 @@ Sprint 6 — PIX Integration (sprint atual pelo calendário)
       cola + polling até a confirmação; checkout agora redireciona para ela.
       Sem credenciais Sicredi configuradas, a tela cai no fluxo antigo
       ("entraremos em contato pelo WhatsApp")
+  ATENÇÃO (desde 16/07/2026): com Sicredi OU Mercado Pago ativos, pedido
+  'novo' sem pagamento é cancelado automaticamente após 24h com estoque
+  devolvido (PEDIDO_EXPIRA_HORAS). Pedido negociado pelo WhatsApp deve ser
+  movido para "Em andamento" no admin para não expirar.
   ROTEIRO DE ATIVAÇÃO EM PRODUÇÃO (passo a passo, na ordem):
 
   [x] 0. Aplicar migrations/2026-07-14_sprint6_pagamentos.sql no banco de
@@ -338,14 +342,42 @@ Sprint 9 — Order Management (setembro) — adiantado, quase completo
       (e-mail/WhatsApp) — fica para Sprint 10+
   [ ] Visualização de notas fiscais (depende do Sprint 8 — NFe)
 
-Sprint 10 — Operational Hardening (setembro)
+Sprint 10 — Operational Hardening (setembro) — adiantado em parte
   [ ] Logs de auditoria
   [ ] Sistemas de retry
   [~] Idempotência de webhooks (os webhooks de pagamento PIX e Mercado
       Pago já são idempotentes e reconferem o status no PSP; revisar
       quando existirem outros webhooks)
-  [ ] Validação de permissões
-  [ ] Revisão de segurança
+  [x] Revisão de segurança — 16/07/2026 (RBAC conferido endpoint a
+      endpoint, webhooks, uploads, segredos, RLS). Corrigido na hora:
+      - Expiração de pedidos não pagos: pedido 'novo' reservava estoque
+        para sempre (esgotamento de estoque por abuso/abandono). Agora
+        uma varredura a cada 15 min (app/services/expiracao_service.py)
+        cancela pedido 'novo' com mais de PEDIDO_EXPIRA_HORAS (24h) e
+        devolve o estoque (espelho exato da reserva, refil incluso).
+        Pedido com pagamento aprovado vira 'pago'; boleto no vencimento/
+        cartão em análise/PIX vigente esperam; 'em_andamento' nunca
+        expira. Só roda com Sicredi ou Mercado Pago habilitados — hoje,
+        em produção, nada muda até ativar os pagamentos.
+      - Rate limiting por IP real (slowapi, X-Forwarded-For;
+        app/core/ratelimit.py): login e signup 5/min (o GoTrue via um
+        único IP para todos os clientes através do backend), criação de
+        pedido e checkout 5/min + 30/h, cotação de frete 20/min,
+        criação de pagamento 10/min. Contadores em memória (instância
+        única); resposta 429 com detail em pt-BR.
+      Achados restantes (fazer neste sprint):
+      [ ] Conferir no painel Supabase se a confirmação de e-mail está
+          ativa e zerar ADMIN_EMAILS depois que os papéis reais
+          existirem em user_roles (bootstrap concede admin pelo e-mail)
+      [ ] Bloquear DELETE de pedido pago/enviado/concluído (hoje apaga
+          até os registros de pagamento via CASCADE) — junto com os
+          logs de auditoria
+      [ ] Validar magic bytes nos uploads de imagem (hoje só o header
+          Content-Type)
+      [ ] Tratar MERCADO_PAGO_WEBHOOK_SECRET como obrigatório na
+          ativação (hoje a assinatura só é validada se setado)
+      [ ] CSP no frontend (token em localStorage + XSS = sessão roubada)
+      [ ] LGPD: mascarar CPF/CNPJ no admin e definir retenção
   [ ] Backups
 
 Sprint 11 — QA & Optimization (outubro)

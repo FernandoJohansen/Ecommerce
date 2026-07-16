@@ -454,6 +454,29 @@ def consultar_pagamento_mp(mp_payment_id: str) -> dict:
     return _resposta_mp(row)
 
 
+def _pagamento_ainda_pagavel(row: dict) -> bool:
+    metodo = row.get("metodo", "pix")
+    if metodo == "pix":
+        return _cobranca_vigente(row)
+    if metodo == "boleto":
+        return _boleto_vigente(row)
+    # Cartão pending/in_process pode aprovar depois (análise manual do MP)
+    return _situacao(row) == "pendente"
+
+
+def bloqueio_para_expiracao(pedido_id: str) -> str | None:
+    """O que impede um pedido 'novo' antigo de expirar: 'aprovado' quando algum
+    pagamento foi confirmado (o pedido deve virar 'pago', não 'cancelado');
+    'pendente' quando ainda existe pagamento pagável (boleto no vencimento,
+    cartão em análise, cobrança PIX vigente). None libera o cancelamento."""
+    pagamentos = get_pagamentos_by_pedido(pedido_id)
+    if any(_situacao(p) == "aprovado" for p in pagamentos):
+        return "aprovado"
+    if any(_pagamento_ainda_pagavel(p) for p in pagamentos):
+        return "pendente"
+    return None
+
+
 def processar_webhook_mercadopago(payment_id: str) -> dict:
     """Notificação do Mercado Pago. O corpo/query nunca é confiado por si só:
     o status é reconferido direto no MP antes de marcar qualquer coisa como

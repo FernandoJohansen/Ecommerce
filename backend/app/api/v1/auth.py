@@ -2,12 +2,13 @@ import logging
 import time
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials
 from supabase_auth.errors import AuthApiError
 
 from app.core.config import SUPABASE_KEY, SUPABASE_URL
 from app.core.database import supabase, supabase_auth
+from app.core.ratelimit import limiter
 from app.core.roles import ROLE_ADMIN
 from app.core.security import bearer_scheme
 from app.dependencies.auth import get_current_user, resolve_role
@@ -56,8 +57,11 @@ def _profile_from_gotrue(data: dict) -> ProfileResponse:
     )
 
 
+# O login passa pelo backend, então o GoTrue vê um único IP para todos os
+# clientes — o limite por IP real precisa ser aplicado aqui.
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest):
+@limiter.limit("5/minute;30/hour")
+def login(request: Request, body: LoginRequest):
     try:
         response = supabase_auth.auth.sign_in_with_password({"email": body.email, "password": body.password})
     except AuthApiError as e:
@@ -76,7 +80,8 @@ def login(body: LoginRequest):
 
 
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
-def signup(body: SignupRequest):
+@limiter.limit("5/minute;20/hour")
+def signup(request: Request, body: SignupRequest):
     try:
         response = supabase_auth.auth.sign_up(
             {

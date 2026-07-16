@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
+from app.core.ratelimit import limiter
 from app.dependencies.auth import get_current_user
 from app.schemas.cart import (
     CartCheckoutRequest,
@@ -45,6 +46,8 @@ def delete_cart(user=Depends(get_current_user)):
     return clear_cart(user.id)
 
 
+# Também cria pedido (reserva estoque) — mesmo limite do POST /pedidos
 @router.post("/finalizar", response_model=PedidoResponse, status_code=201)
-def finalize_cart(body: CartCheckoutRequest, user=Depends(get_current_user)):
+@limiter.limit("5/minute;30/hour")
+def finalize_cart(request: Request, body: CartCheckoutRequest, user=Depends(get_current_user)):
     return checkout_cart(user, body)
