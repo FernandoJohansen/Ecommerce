@@ -349,8 +349,8 @@ Sprint 10 — Operational Hardening (setembro) — adiantado em parte
       produto (estoque e fotos inclusos), papel de usuário e registro do
       webhook PIX. Registro é best-effort (nunca derruba a ação principal).
       Leitura: GET /api/admin/auditoria (admin) + aba "Auditoria" no admin.
-      ATIVAÇÃO: [ ] aplicar migrations/2026-07-16_sprint10_audit_log.sql
-      no banco de produção (psql via session pooler).
+      ATIVAÇÃO: [x] migration 2026-07-16_sprint10_audit_log.sql aplicada
+      no banco de produção em 16/07/2026 (tabela + RLS + índice conferidos).
   [ ] Sistemas de retry
   [~] Idempotência de webhooks (os webhooks de pagamento PIX e Mercado
       Pago já são idempotentes e reconferem o status no PSP; revisar
