@@ -387,8 +387,16 @@ Sprint 10 — Operational Hardening (setembro) — adiantado em parte
       [x] Aviso alto no startup quando Mercado Pago está ativo sem
           MERCADO_PAGO_WEBHOOK_SECRET (webhook aceita chamada sem
           assinatura; o status ainda é reconferido no MP)
+      [x] CSP + headers de segurança no frontend — 16/07/2026: o worker
+          (frontend/src/server.ts) adiciona em toda resposta de produção
+          Content-Security-Policy (self + Google Fonts + Supabase storage +
+          domínios Mercado Pago/ML para o Brick; frame-ancestors 'none'),
+          nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy e
+          HSTS. Limitação: script-src precisa de 'unsafe-inline' (hidratação
+          do TanStack Start não tem nonce); scripts externos de origem
+          estranha continuam bloqueados. Só em produção (dev usa HMR).
+          VITE_API_URL entra no connect-src automaticamente no build.
       Achados restantes (fazer neste sprint):
-      [ ] CSP no frontend (token em localStorage + XSS = sessão roubada)
       [ ] LGPD: mascarar CPF/CNPJ no admin e definir retenção
       Pendências do usuário (painéis): confirmação de e-mail ativa no
       Supabase; rotacionar a senha do pooler (exposta em chat 15/07).

@@ -7,6 +7,61 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
+// Origem do backend em produção (ex.: https://api.exemplo.com); em dev o /api
+// é proxy do Vite na mesma origem e a variável fica vazia.
+const API_ORIGIN = (() => {
+  const url = import.meta.env.VITE_API_URL as string | undefined;
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+})();
+
+// O que a página realmente carrega: fontes do Google, fotos dos buckets
+// públicos do Supabase, QR PIX em data:, e o Card Payment Brick do Mercado
+// Pago (SDK externo + iframes + XHR nos domínios MP/ML). 'unsafe-inline' em
+// script-src é exigido pelos scripts de hidratação do TanStack Start (sem
+// suporte a nonce); ainda assim a CSP bloqueia qualquer script de origem
+// estranha. Em style-src cobre os atributos style dos componentes.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://*.mercadopago.com https://*.mlstatic.com https://*.mercadolibre.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: https://*.supabase.co https://*.mercadopago.com https://*.mlstatic.com",
+  `connect-src 'self'${API_ORIGIN ? ` ${API_ORIGIN}` : ""} https://*.mercadopago.com https://*.mercadolibre.com https://*.mlstatic.com`,
+  "frame-src https://*.mercadopago.com https://*.mercadolibre.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
+const SECURITY_HEADERS: Record<string, string> = {
+  "Content-Security-Policy": CSP,
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+};
+
+function withSecurityHeaders(response: Response): Response {
+  // Só em produção: em dev o HMR do Vite usa websocket/inline que a CSP quebraria
+  if (!import.meta.env.PROD) return response;
+  const headers = new Headers(response.headers);
+  for (const [nome, valor] of Object.entries(SECURITY_HEADERS)) {
+    headers.set(nome, valor);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 async function getServerEntry(): Promise<ServerEntry> {
@@ -71,10 +126,10 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
-      return brandedErrorResponse();
+      return withSecurityHeaders(brandedErrorResponse());
     }
   },
 };
