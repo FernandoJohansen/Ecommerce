@@ -26,6 +26,17 @@ def get_all_pedidos() -> list[dict]:
     return result.data
 
 
+def get_pedidos_by_user(user_id: str) -> list[dict]:
+    result = (
+        supabase.table("pedidos")
+        .select("*, itens:pedido_itens(*)")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data
+
+
 def update_pedido(pedido_id: str, data: dict) -> dict:
     result = supabase.table("pedidos").update(data).eq("id", pedido_id).execute()
     return result.data[0] if result.data else {}

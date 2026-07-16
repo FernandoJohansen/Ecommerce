@@ -117,6 +117,13 @@ function PerfilPage() {
               variant="outline"
               className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
             >
+              <Link to="/pedidos">Pedidos</Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
+            >
               <Link to="/carrinho">Carrinho</Link>
             </Button>
             <Button

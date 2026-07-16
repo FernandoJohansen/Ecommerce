@@ -48,9 +48,12 @@ function AuthLinks() {
     <>
       {admin && (
         <Link to="/admin" className="hover:text-background">
-          Pedidos
+          Admin
         </Link>
       )}
+      <Link to="/pedidos" className="hover:text-background">
+        Pedidos
+      </Link>
       <Link to="/carrinho" className="hover:text-background">
         Carrinho
       </Link>

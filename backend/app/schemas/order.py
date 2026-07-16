@@ -121,12 +121,22 @@ class PedidoCreate(DadosCliente):
     itens: list[PedidoItemCreate] = Field(min_length=1)
 
 
+STATUS_PEDIDO = {"novo", "em_andamento", "pago", "enviado", "concluido", "cancelado"}
+
+
 class PedidoUpdate(BaseModel):
     """Atualização parcial pelo admin: só os campos enviados são gravados."""
 
     status: str | None = None
     # "" limpa o código (volta a NULL no banco)
     codigo_rastreio: str | None = Field(default=None, max_length=100)
+
+    @field_validator("status")
+    @classmethod
+    def valida_status(cls, v: str | None) -> str | None:
+        if v is not None and v not in STATUS_PEDIDO:
+            raise ValueError(f"Status inválido: {v}")
+        return v
 
     @model_validator(mode="after")
     def exige_algum_campo(self) -> "PedidoUpdate":

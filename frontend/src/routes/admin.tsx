@@ -42,6 +42,11 @@ import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 import { ApiError, apiFetch } from "@/lib/api";
 import { isAdmin, isAuthenticated, isStaff, logout, type Role } from "@/lib/auth";
+import {
+  STATUS_PEDIDO as STATUS,
+  statusPedidoLabel as statusLabel,
+  type StatusPedido as StatusKey,
+} from "@/lib/pedido-status";
 import { formatarPreco } from "@/lib/precos";
 
 export const Route = createFileRoute("/admin")({
@@ -88,18 +93,8 @@ const enderecoResumo = (pedido: Pedido) => {
   return [linha1, pedido.complemento, linha2, pedido.cep].filter(Boolean).join(" — ");
 };
 
-const STATUS = {
-  novo: "Novo",
-  em_andamento: "Em andamento",
-  pago: "Pago",
-  enviado: "Enviado",
-  concluido: "Concluído",
-  cancelado: "Cancelado",
-} as const;
-
-type StatusKey = keyof typeof STATUS;
-
-const statusLabel = (status: string) => STATUS[status as StatusKey] ?? status;
+// Receita conta pedidos que foram de fato pagos (inclui já enviados/concluídos)
+const RECEITA_STATUS = new Set<string>(["pago", "enviado", "concluido"]);
 
 type Usuario = {
   id: string;
@@ -261,6 +256,35 @@ function AdminPage() {
     acc[pedido.status] = (acc[pedido.status] ?? 0) + 1;
     return acc;
   }, {});
+
+  const pedidosPagos = pedidos.filter((pedido) => RECEITA_STATUS.has(pedido.status));
+  const receitaTotal = pedidosPagos.reduce((soma, pedido) => soma + pedido.total_centavos, 0);
+  const agora = new Date();
+  const pagosNoMes = pedidosPagos.filter((pedido) => {
+    const data = new Date(pedido.created_at);
+    return data.getMonth() === agora.getMonth() && data.getFullYear() === agora.getFullYear();
+  });
+  const receitaNoMes = pagosNoMes.reduce((soma, pedido) => soma + pedido.total_centavos, 0);
+  const ticketMedio = pedidosPagos.length > 0 ? Math.round(receitaTotal / pedidosPagos.length) : 0;
+
+  const metricas = [
+    {
+      label: "Receita no mês",
+      valor: formatarPreco(receitaNoMes),
+      nota: `${pagosNoMes.length} pedido(s)`,
+    },
+    {
+      label: "Receita total",
+      valor: formatarPreco(receitaTotal),
+      nota: `${pedidosPagos.length} pedido(s)`,
+    },
+    {
+      label: "Ticket médio",
+      valor: pedidosPagos.length > 0 ? formatarPreco(ticketMedio) : "—",
+      nota: "pedidos pagos",
+    },
+    { label: "A enviar", valor: String(contagem.pago ?? 0), nota: "pagos aguardando envio" },
+  ];
 
   const pedidosFiltrados =
     filtro === "todos" ? pedidos : pedidos.filter((pedido) => pedido.status === filtro);
@@ -461,6 +485,20 @@ function AdminPage() {
 
         {aba === "pedidos" && (
           <>
+            {!isLoading && !error && (
+              <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {metricas.map((metrica) => (
+                  <div key={metrica.label} className="border border-border p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      {metrica.label}
+                    </p>
+                    <p className="serif mt-2 text-2xl">{metrica.valor}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{metrica.nota}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="mb-8 flex flex-wrap gap-2">
               {filtros.map((f) => (
                 <button

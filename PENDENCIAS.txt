@@ -318,13 +318,25 @@ Sprint 8 — NFe (agosto)
   [ ] Armazenamento de DANFE/XML/PDF
   [ ] Fluxos fiscais
 
-Sprint 9 — Order Management (setembro) — parcialmente entregue
+Sprint 9 — Order Management (setembro) — adiantado, quase completo
   [x] Aba Pedidos no admin com filtro por status (básico)
-  [ ] Dashboard de pedidos mais completo (métricas)
-  [ ] Fluxos de status do pedido (status "enviado" já existe desde o Sprint 7)
-  [~] Atualizações de envio/rastreamento (código de rastreio manual no admin
-      entregue no Sprint 7; falta mostrar ao cliente e notificar)
-  [ ] Visualização de notas fiscais
+  [x] Dashboard de pedidos com métricas — 16/07/2026: painel na aba Pedidos
+      do admin (receita no mês, receita total, ticket médio e pedidos pagos
+      aguardando envio); receita considera status pago/enviado/concluído
+  [x] Página "Meus pedidos" do cliente — 16/07/2026: /pedidos lista os
+      pedidos do usuário logado (novo GET /api/pedidos/meus) com itens,
+      subtotal, frete, total, status, código de rastreio (com copiar) e
+      botão "Pagar agora" quando o pedido ainda não foi pago; links no menu
+      da home e no perfil. Pedidos feitos como convidado não têm user_id e
+      não aparecem. Sem migration (user_id já existia).
+  [x] Fluxos de status do pedido — 16/07/2026: PATCH /api/pedidos/{id}
+      valida o status contra a lista oficial (novo/em_andamento/pago/
+      enviado/concluido/cancelado); rótulos compartilhados entre admin e
+      cliente em frontend/src/lib/pedido-status.ts
+  [~] Atualizações de envio/rastreamento: código de rastreio agora aparece
+      para o cliente em /pedidos; falta notificação automática
+      (e-mail/WhatsApp) — fica para Sprint 10+
+  [ ] Visualização de notas fiscais (depende do Sprint 8 — NFe)
 
 Sprint 10 — Operational Hardening (setembro)
   [ ] Logs de auditoria

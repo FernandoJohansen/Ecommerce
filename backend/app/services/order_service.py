@@ -4,6 +4,7 @@ from app.core.config import MELHOR_ENVIO_ENABLED
 from app.repositories.order_repository import (
     delete_pedido,
     get_all_pedidos,
+    get_pedidos_by_user,
     insert_pedido,
     insert_pedido_itens,
     update_pedido,
@@ -147,6 +148,10 @@ def criar_pedido(
 
 def list_pedidos() -> list[dict]:
     return get_all_pedidos()
+
+
+def list_pedidos_do_usuario(user_id: str) -> list[dict]:
+    return get_pedidos_by_user(user_id)
 
 
 def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:

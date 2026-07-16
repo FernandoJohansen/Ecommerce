@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
 
-from app.dependencies.auth import get_optional_user, get_staff_user
+from app.dependencies.auth import get_current_user, get_optional_user, get_staff_user
 from app.schemas.order import PedidoCreate, PedidoResponse, PedidoUpdate
 from app.services.order_service import (
     create_pedido,
     list_pedidos,
+    list_pedidos_do_usuario,
     remove_pedido,
     update_pedido_status,
 )
@@ -20,6 +21,12 @@ def post_pedido(pedido: PedidoCreate, user=Depends(get_optional_user)):
 @router.get("/pedidos")
 def get_pedidos(_user=Depends(get_staff_user)):
     return list_pedidos()
+
+
+@router.get("/pedidos/meus", response_model=list[PedidoResponse])
+def get_meus_pedidos(user=Depends(get_current_user)):
+    """Pedidos do cliente logado (pedidos de convidado não têm user_id)."""
+    return list_pedidos_do_usuario(user.id)
 
 
 @router.patch("/pedidos/{pedido_id}")
