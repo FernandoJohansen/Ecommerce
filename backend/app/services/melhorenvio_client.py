@@ -14,6 +14,7 @@ from app.core.config import (
     MELHOR_ENVIO_ENABLED,
     MELHOR_ENVIO_TOKEN,
 )
+from app.core.retry import com_retry
 
 
 def exigir_melhor_envio() -> None:
@@ -51,11 +52,13 @@ def calcular_frete(
         "User-Agent": f"Carolina Viapiana ({MELHOR_ENVIO_CONTATO or 'sem contato'})",
     }
     try:
-        resp = httpx.post(
-            f"{MELHOR_ENVIO_BASE_URL}/api/v2/me/shipment/calculate",
-            json=payload,
-            headers=headers,
-            timeout=20.0,
+        resp = com_retry(
+            lambda: httpx.post(
+                f"{MELHOR_ENVIO_BASE_URL}/api/v2/me/shipment/calculate",
+                json=payload,
+                headers=headers,
+                timeout=20.0,
+            )
         )
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Serviço de frete inacessível")

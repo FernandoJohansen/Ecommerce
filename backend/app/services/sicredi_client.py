@@ -21,6 +21,7 @@ from app.core.config import (
     SICREDI_ENABLED,
     SICREDI_KEY_PATH,
 )
+from app.core.retry import com_retry
 
 SCOPES = "cob.read cob.write pix.read webhook.read webhook.write"
 
@@ -51,10 +52,12 @@ def _obter_token(client: httpx.Client) -> str:
     with _lock:
         if _token and time.monotonic() < _token_expira_em:
             return _token
-        resp = client.post(
-            "/oauth/token",
-            auth=(SICREDI_CLIENT_ID, SICREDI_CLIENT_SECRET),
-            data={"grant_type": "client_credentials", "scope": SCOPES},
+        resp = com_retry(
+            lambda: client.post(
+                "/oauth/token",
+                auth=(SICREDI_CLIENT_ID, SICREDI_CLIENT_SECRET),
+                data={"grant_type": "client_credentials", "scope": SCOPES},
+            )
         )
         if resp.status_code != 200:
             raise HTTPException(
@@ -78,15 +81,19 @@ def _requisicao(metodo: str, caminho: str, json: dict | None = None) -> dict:
     try:
         with _client() as client:
             token = _obter_token(client)
-            resp = client.request(
-                metodo, caminho, json=json, headers={"Authorization": f"Bearer {token}"}
+            resp = com_retry(
+                lambda: client.request(
+                    metodo, caminho, json=json, headers={"Authorization": f"Bearer {token}"}
+                )
             )
             if resp.status_code == 401:
                 # token revogado antes do prazo: renova uma vez e repete
                 _invalidar_token()
                 token = _obter_token(client)
-                resp = client.request(
-                    metodo, caminho, json=json, headers={"Authorization": f"Bearer {token}"}
+                resp = com_retry(
+                    lambda: client.request(
+                        metodo, caminho, json=json, headers={"Authorization": f"Bearer {token}"}
+                    )
                 )
     except HTTPException:
         raise
@@ -126,10 +133,12 @@ def configurar_webhook(chave: str, webhook_url: str) -> None:
     try:
         with _client() as client:
             token = _obter_token(client)
-            resp = client.put(
-                f"/api/v2/webhook/{chave}",
-                json={"webhookUrl": webhook_url},
-                headers={"Authorization": f"Bearer {token}"},
+            resp = com_retry(
+                lambda: client.put(
+                    f"/api/v2/webhook/{chave}",
+                    json={"webhookUrl": webhook_url},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
             )
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="PSP de pagamento inacessível")

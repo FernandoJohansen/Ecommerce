@@ -13,6 +13,7 @@ from app.core.config import (
     MERCADO_PAGO_BASE_URL,
     MERCADO_PAGO_ENABLED,
 )
+from app.core.retry import com_retry
 
 
 def exigir_mercado_pago() -> None:
@@ -38,7 +39,8 @@ def _requisicao(
     headers = {"X-Idempotency-Key": idempotency_key} if idempotency_key else {}
     try:
         with _client() as client:
-            resp = client.request(metodo, caminho, json=json, headers=headers)
+            # Retry seguro: criação de pagamento leva X-Idempotency-Key
+            resp = com_retry(lambda: client.request(metodo, caminho, json=json, headers=headers))
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="PSP de pagamento inacessível")
 
