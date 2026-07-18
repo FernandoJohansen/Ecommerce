@@ -430,7 +430,21 @@ Sprint 10 — Operational Hardening (setembro) — adiantado em parte
           números para o financeiro). Decisão de política com a Carolina.
       Pendências do usuário (painéis): confirmação de e-mail ativa no
       Supabase; rotacionar a senha do pooler (exposta em chat 15/07).
-  [ ] Backups
+  [x] Backups — 18/07/2026: scripts/backup_db.sh faz dump do Postgres de
+      produção via session pooler (pg_dump -Fc, schemas public + auth:
+      catálogo, pedidos, pagamentos, auditoria e contas de usuário; se o
+      papel não ler auth, cai para public sozinho) com rotação automática
+      (BACKUP_MANTER, default 14; pasta backups/, no .gitignore).
+      Restauração: pg_restore --no-owner --schema=public -d <url> arquivo.
+      LGPD: o dump tem dados pessoais em claro — só disco local/
+      criptografado, nunca subir para terceiros.
+      Limitação: imagens do storage (buckets produtos/avatars) não entram
+      no dump.
+      ATIVAÇÃO: [ ] rotacionar a senha do pooler (exposta em chat) e
+      preencher SUPABASE_DB_URL no backend/.env; [ ] rodar
+      scripts/backup_db.sh uma vez e conferir o .dump; [ ] agendar diário
+      (máquina sem crontab — exemplo de systemd user timer no cabeçalho do
+      script); [ ] testar restauração num projeto Supabase de teste.
 
 Sprint 11 — QA & Optimization (outubro)
   [ ] Correções de responsividade
