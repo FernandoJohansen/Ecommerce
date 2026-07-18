@@ -193,13 +193,26 @@ function PedidoCard({ pedido }: { pedido: Pedido }) {
         </div>
       )}
 
-      {pedido.status === "novo" && (
-        <Button asChild className="mt-6 w-full rounded-none text-xs uppercase tracking-[0.2em]">
-          <Link to="/pagamento/$pedidoId" params={{ pedidoId: pedido.id }}>
-            Pagar agora
-          </Link>
-        </Button>
-      )}
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+        {pedido.status === "novo" && (
+          <Button asChild className="flex-1 rounded-none text-xs uppercase tracking-[0.2em]">
+            <Link to="/pagamento/$pedidoId" params={{ pedidoId: pedido.id }}>
+              Pagar agora
+            </Link>
+          </Button>
+        )}
+        {pedido.status !== "cancelado" && (
+          <Button
+            asChild
+            variant="outline"
+            className="flex-1 rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
+          >
+            <Link to="/rastreio/$pedidoId" params={{ pedidoId: pedido.id }}>
+              Acompanhar pedido
+            </Link>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

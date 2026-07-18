@@ -37,6 +37,17 @@ def get_pedidos_by_user(user_id: str) -> list[dict]:
     return result.data
 
 
+def get_pedido_by_user(pedido_id: str, user_id: str) -> dict | None:
+    result = (
+        supabase.table("pedidos")
+        .select("*, itens:pedido_itens(*)")
+        .eq("id", pedido_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
 def get_pedidos_novos_antes(cutoff_iso: str) -> list[dict]:
     """Pedidos ainda 'novo' criados antes do instante dado (candidatos a expirar)."""
     result = (

@@ -6,6 +6,7 @@ from app.repositories.order_repository import (
     delete_pedido,
     get_all_pedidos,
     get_pedido_by_id,
+    get_pedido_by_user,
     get_pedidos_by_user,
     insert_pedido,
     insert_pedido_itens,
@@ -169,6 +170,16 @@ def list_pedidos() -> list[dict]:
 
 def list_pedidos_do_usuario(user_id: str) -> list[dict]:
     return [_com_documento_mascarado(p) for p in get_pedidos_by_user(user_id)]
+
+
+def get_pedido_do_usuario(pedido_id: str, user_id: str) -> dict:
+    """Um pedido do próprio cliente (página de acompanhamento). O filtro por
+    user_id garante que pedido de outra pessoa responde 404, não 403 — não
+    vaza a existência do pedido."""
+    pedido = get_pedido_by_user(pedido_id, user_id)
+    if not pedido:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    return _com_documento_mascarado(pedido)
 
 
 def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:

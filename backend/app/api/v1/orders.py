@@ -6,6 +6,7 @@ from app.schemas.order import PedidoCreate, PedidoResponse, PedidoUpdate
 from app.services.audit_service import registrar_auditoria
 from app.services.order_service import (
     create_pedido,
+    get_pedido_do_usuario,
     list_pedidos,
     list_pedidos_do_usuario,
     remove_pedido,
@@ -32,6 +33,12 @@ def get_pedidos(_user=Depends(get_staff_user)):
 def get_meus_pedidos(user=Depends(get_current_user)):
     """Pedidos do cliente logado (pedidos de convidado não têm user_id)."""
     return list_pedidos_do_usuario(user.id)
+
+
+@router.get("/pedidos/meus/{pedido_id}", response_model=PedidoResponse)
+def get_meu_pedido(pedido_id: str, user=Depends(get_current_user)):
+    """Um pedido do cliente logado (página de acompanhamento /rastreio)."""
+    return get_pedido_do_usuario(pedido_id, user.id)
 
 
 @router.patch("/pedidos/{pedido_id}")

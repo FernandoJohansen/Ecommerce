@@ -337,9 +337,22 @@ Sprint 9 — Order Management (setembro) — adiantado, quase completo
       valida o status contra a lista oficial (novo/em_andamento/pago/
       enviado/concluido/cancelado); rótulos compartilhados entre admin e
       cliente em frontend/src/lib/pedido-status.ts
-  [~] Atualizações de envio/rastreamento: código de rastreio agora aparece
-      para o cliente em /pedidos; falta notificação automática
-      (e-mail/WhatsApp) — fica para Sprint 10+
+  [~] Atualizações de envio/rastreamento: código de rastreio aparece para o
+      cliente em /pedidos e agora há página de acompanhamento
+      /rastreio/:pedidoId (18/07/2026) — só do dono logado (novo
+      GET /api/pedidos/meus/{id}, 404 para pedido de terceiro): linha do
+      tempo do status (recebido → pago → enviado → entregue), prazo do
+      frete, código de rastreio com copiar e link direto Correios/Jadlog
+      (detectado pelo frete_servico), polling de 30s enquanto não
+      concluído/cancelado; botão "Acompanhar pedido" nos cards de /pedidos;
+      endereço de entrega exibido na página (18/07/2026).
+      Falta notificação automática (e-mail/WhatsApp) — fica para Sprint 10+
+      FUTURO (avaliar viabilidade quando o token Melhor Envio existir):
+      eventos de rastreio embutidos na página ("objeto postado", "saiu para
+      entrega"…) em vez de só o link externo. Provável dependência dupla:
+      API de tracking do Melhor Envio rastreia envios comprados por lá —
+      exigiria também a compra de etiqueta (fora do escopo do Sprint 7);
+      alternativa seria contrato/credenciais da API dos Correios.
   [ ] Visualização de notas fiscais (depende do Sprint 8 — NFe)
 
 Sprint 10 — Operational Hardening (setembro) — adiantado em parte
@@ -351,7 +364,11 @@ Sprint 10 — Operational Hardening (setembro) — adiantado em parte
       Leitura: GET /api/admin/auditoria (admin) + aba "Auditoria" no admin.
       ATIVAÇÃO: [x] migration 2026-07-16_sprint10_audit_log.sql aplicada
       no banco de produção em 16/07/2026 (tabela + RLS + índice conferidos).
-  [ ] Sistemas de retry
+  [x] Sistemas de retry — 18/07/2026: chamadas externas (Sicredi, Mercado
+      Pago, Melhor Envio) passam por app/core/retry.py — até 3 tentativas
+      com backoff (0,5s/1s) em erro de transporte ou 502/503/504; 4xx nunca
+      repete. Seguro porque todas as operações são idempotentes (cob é PUT
+      por txid, MP leva X-Idempotency-Key, cotação não tem efeito colateral)
   [~] Idempotência de webhooks (os webhooks de pagamento PIX e Mercado
       Pago já são idempotentes e reconferem o status no PSP; revisar
       quando existirem outros webhooks)
