@@ -163,10 +163,12 @@ Achados da segunda rodada (2026-07-20):
         antes. Aceita ts em ms (formato MP) ou segundos. Testado: fresco+válido
         aceito, replay de 10 min recusado, ts adulterado recusado.
 
-[ ] 15. /docs, /redoc e /openapi.json públicos
-        A superfície inteira da API fica exposta sem auth. Não é vuln por si,
-        reduz obscuridade. Correção opcional: FastAPI(docs_url=None,
-        redoc_url=None, openapi_url=None). Já anotado em docs/DEPLOY.md.
+[x] 15. /docs, /redoc e /openapi.json públicos
+        A superfície inteira da API ficava exposta sem auth.
+        CORRIGIDO (2026-07-20): docs desligadas por padrão (config.ENABLE_API_DOCS,
+        default false; docs_url/redoc_url/openapi_url = None no FastAPI). Ligar
+        só em dev com ENABLE_API_DOCS=true. Testado: /docs, /redoc e
+        /openapi.json → 404 por padrão; 200 com a flag ligada.
 
 
 BAIXA / HARDENING
@@ -190,10 +192,19 @@ BAIXA / HARDENING
        Correção: nunca logar, rotacionar se o servidor/repo já foi compartilhado,
        .env com chmod 600.
 
-[ ] 10. Dumps de backup contêm CPF/CNPJ em claro + PII
+[x] 10. Dumps de backup contêm CPF/CNPJ em claro + PII
         Arquivo: scripts/backup_db.sh
-        Dump traz dados pessoais sem máscara (o próprio script avisa).
-        Correção: criptografar os .dump em repouso (age/gpg) — LGPD.
+        Dump trazia dados pessoais sem máscara em disco.
+        CORRIGIDO (2026-07-20): pg_dump agora é transmitido direto ao cifrador
+        (age chave pública / gpg chave pública / gpg simétrico via
+        BACKUP_AGE_RECIPIENT|BACKUP_GPG_RECIPIENT|BACKUP_GPG_PASSPHRASE) — o
+        dump em claro nunca toca o disco. Senha do gpg vai por fd 3, não em
+        argv. Sem método configurado, sai em claro com aviso alto. Rotação
+        cobre .dump/.dump.gpg/.dump.age. Testado ponta a ponta contra produção:
+        .dump.gpg gerado, decriptado e validado com pg_restore --list; nenhum
+        .dump em claro em disco.
+        AÇÃO DE DEPLOY: setar um dos BACKUP_*_ (recomendado age/gpg com chave
+        pública) no ambiente que roda o cron de backup.
 
 
 NOTA — já está correto (não regredir):

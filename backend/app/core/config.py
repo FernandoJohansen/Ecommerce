@@ -99,5 +99,15 @@ PAYMENT_TOKEN_TTL_SEGUNDOS: int = int(os.getenv("PAYMENT_TOKEN_TTL_SEGUNDOS", st
 RATE_LIMIT_CLIENT_IP_HEADER: str = os.getenv("RATE_LIMIT_CLIENT_IP_HEADER", "").strip().lower()
 RATE_LIMIT_TRUSTED_PROXY_HOPS: int = int(os.getenv("RATE_LIMIT_TRUSTED_PROXY_HOPS", "0"))
 
+# Docs interativas da API (/docs, /redoc, /openapi.json). Desligadas por
+# padrão: em produção expõem toda a superfície da API sem autenticação. Ligar
+# só em dev (ENABLE_API_DOCS=true).
+ENABLE_API_DOCS: bool = os.getenv("ENABLE_API_DOCS", "false").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set in .env")

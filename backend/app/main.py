@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from app.api.v1 import audit, auth, cart, categories, frete, orders, payments, products, users
 from app.core.config import (
     ALLOWED_ORIGINS,
+    ENABLE_API_DOCS,
     MERCADO_PAGO_ENABLED,
     MERCADO_PAGO_WEBHOOK_SECRET,
     SICREDI_ENABLED,
@@ -62,7 +63,15 @@ async def lifespan(_app: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title="Carolina Viapiana API", lifespan=lifespan)
+# Docs interativas só quando ENABLE_API_DOCS=true (dev). Em produção ficam
+# desligadas para não expor a superfície da API sem autenticação.
+app = FastAPI(
+    title="Carolina Viapiana API",
+    lifespan=lifespan,
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
+)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
