@@ -473,9 +473,16 @@ NOVEMBRO — Production Deployment
 
 NOTAS
 -----
+- GO-LIVE: roteiro único e ordenado em docs/DEPLOY.md (20/07/2026) —
+  consolida os roteiros de ativação dos Sprints 6/6b/7 + deploy de
+  backend/frontend + domínio/DNS + pós-go-live. Builds validados em
+  20/07/2026 (frontend, lint, imagem Docker do backend).
 - Deploy do frontend: workflow "Deploy Frontend" é manual; requer o
-  secret CLOUDFLARE_API_TOKEN no GitHub. Depois do primeiro deploy
-  validado, trocar o trigger para push na main.
+  secret CLOUDFLARE_API_TOKEN no GitHub E a variável de repositório
+  VITE_API_URL (o workflow falha sem ela desde 20/07/2026 — sem a
+  variável o bundle chamaria /api na origem do worker e nenhuma
+  chamada de API funcionaria). Depois do primeiro deploy validado,
+  trocar o trigger para push na main.
 - Stack real divergiu do PDF (TanStack Start/Cloudflare em vez de
   Next.js/Vercel; Supabase client em vez de SQLModel/Alembic).
   Detalhes em STACK.md.

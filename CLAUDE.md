@@ -57,8 +57,9 @@ Routes live in `src/routes/`. TanStack Router generates `src/routeTree.gen.ts` a
 
 ### Key business logic
 
-- `src/components/AtendimentoForm.tsx` — Order form. On submit, composes a pre-filled WhatsApp message and opens `wa.me/<WHATSAPP>`. The `WHATSAPP` constant at the top of that file needs to be updated with the real phone number.
-- Products (`PRODUTOS`) and available scents (`AROMAS`) are hardcoded arrays in `AtendimentoForm.tsx`.
+- Products and scents come from the API (`GET /api/produtos`, `GET /api/aromas`) — nothing is hardcoded in the frontend anymore.
+- `src/components/AtendimentoForm.tsx` — Homepage order section; renders the catalog with the shared `CompraProduto` purchase controls.
+- `src/routes/checkout.tsx` → `/pagamento/:pedidoId` — Full checkout flow (address, shipping quote, PIX/card/boleto). Without payment credentials configured, orders fall back to being arranged over WhatsApp.
 
 ## Backend
 

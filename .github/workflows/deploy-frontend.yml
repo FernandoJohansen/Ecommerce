@@ -23,7 +23,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Sem VITE_API_URL o bundle chama /api na própria origem do worker e
+      # todas as chamadas de API falham em produção.
+      - name: Fail if VITE_API_URL is missing
+        if: ${{ vars.VITE_API_URL == '' }}
+        run: |
+          echo "::error::Configure a variável de repositório VITE_API_URL (Settings > Secrets and variables > Actions > Variables) com a URL pública do backend, ex.: https://api.seudominio.com.br"
+          exit 1
+
       - name: Build
+        env:
+          # Valores públicos, embutidos no bundle e na CSP do worker no build.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_MERCADO_PAGO_PUBLIC_KEY: ${{ vars.VITE_MERCADO_PAGO_PUBLIC_KEY }}
         run: bun run build
 
       - name: Deploy to Cloudflare Workers
