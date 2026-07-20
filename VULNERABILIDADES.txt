@@ -174,11 +174,22 @@ Achados da segunda rodada (2026-07-20):
 BAIXA / HARDENING
 -----------------
 
-[ ] 7. JWT em localStorage
+[~] 7. JWT em localStorage
        Arquivo: frontend/src/lib/auth.ts:13
-       Token exfiltrável por XSS. Superfície de XSS hoje é mínima. Trade-off
-       conhecido; manter a superfície de XSS em zero ou migrar p/ cookie
-       httpOnly/Secure/SameSite.
+       Token exfiltrável por XSS. Superfície de XSS hoje é mínima (React escapa
+       + CSP estrita no server.ts). O esquema atual (Bearer no header) é imune a
+       CSRF — trocar por cookie precisa preservar isso.
+       DECISÃO (2026-07-20): ADIAR para depois do domínio próprio (Fase 6 do
+       docs/DEPLOY.md). Só quando frontend e backend compartilharem o mesmo
+       domínio registrável (viapianastore.com + api.viapianastore.com) dá para
+       usar cookie SameSite=Lax, que fecha o roubo de token por XSS SEM reabrir
+       CSRF. Fazer agora (pré-domínio, cross-site workers.dev + onrender.com)
+       exigiria SameSite=None + defesa CSRF — pior que o estado atual.
+       PLANO (na Fase 6): backend seta Set-Cookie HttpOnly; Secure; SameSite=Lax;
+       Domain=.viapianastore.com no /auth/login; verify_token lê o cookie OU o
+       header Authorization (compat); apiFetch usa credentials:"include" e para
+       de anexar o Bearer; CORS vira allow_credentials=True com origens
+       explícitas. Aproveitar para avaliar refresh token (hoje não há).
 
 [ ] 8. Falta de headers de segurança
        Sem HSTS, X-Content-Type-Options, frame-ancestors/CSP, Referrer-Policy.

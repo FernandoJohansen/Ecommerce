@@ -121,6 +121,12 @@ Detalhes: `PENDENCIAS.txt` → Sprint 7. Resumo:
      **novo deploy do frontend**
    - `PIX_WEBHOOK_URL` → re-registrar o webhook Sicredi (`PUT /api/pagamento/webhook`)
    - `MERCADO_PAGO_WEBHOOK_URL` + URL na tela de Webhooks do painel MP
+5. **Hardening de auth (item 7 do VULNERABILIDADES.txt):** com o domínio no ar,
+   frontend e backend passam a compartilhar o domínio registrável — momento
+   certo de migrar o JWT de localStorage para cookie `HttpOnly; Secure;
+   SameSite=Lax; Domain=.seudominio.com` (fecha roubo de token por XSS sem
+   reabrir CSRF). Antes do domínio isso exigiria `SameSite=None` + CSRF e ficaria
+   pior. Plano detalhado no VULNERABILIDADES.txt, item 7.
 
 ## Fase 7 — Pós-go-live (operação)
 
