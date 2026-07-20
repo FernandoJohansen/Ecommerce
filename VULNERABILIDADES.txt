@@ -116,7 +116,7 @@ MÉDIA
 
 Achados da segunda rodada (2026-07-20):
 
-[~] 11. RLS ampla demais: "TO authenticated USING(true)" em pedidos/
+[x] 11. RLS ampla demais: "TO authenticated USING(true)" em pedidos/
         pedido_itens/produtos/aromas (backend/schema.sql:175)
         As policies liberavam LEITURA E ESCRITA de todos os pedidos (com PII e
         documento em claro no banco) para QUALQUER usuário com papel
@@ -125,11 +125,12 @@ Achados da segunda rodada (2026-07-20):
         RLS) e o frontend não tem cliente Supabase direto (fala só com o
         backend, que mascara/filtra por dono). Vira rombo grave no dia em que
         alguém plugar um cliente Supabase (anon key + JWT) no frontend.
-        CORRIGIDO NO CÓDIGO (2026-07-20): policies removidas do schema.sql;
-        RLS dessas tabelas fica deny-by-default para authenticated.
-        AÇÃO DE DEPLOY (pendente): aplicar
-        migrations/2026-07-20_rls_hardening.sql no banco de produção (psql via
-        session pooler). Nada no app depende dessas policies.
+        CORRIGIDO (2026-07-20): policies removidas do schema.sql; RLS dessas
+        tabelas fica deny-by-default para authenticated. Migration
+        migrations/2026-07-20_rls_hardening.sql APLICADA no banco de produção
+        em 2026-07-20 (psql via session pooler). Conferido: só restam
+        produtos_public_read/aromas_public_read; pedidos e pedido_itens sem
+        policy e sem grant para authenticated.
 
 [x] 12. Dependências do backend com CVEs conhecidos (pip-audit)
         python-multipart 0.0.20 tinha 6 CVEs (PYSEC-2026-1852/3036-3040),
