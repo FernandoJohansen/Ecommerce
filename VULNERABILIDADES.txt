@@ -138,14 +138,17 @@ Achados da segunda rodada (2026-07-20):
         CORRIGIDO (2026-07-20): python-multipart→0.0.31, uv→0.11.15.
         pip-audit limpo; import e upload de avatar validados.
 
-[ ] 13. Dependências do frontend com advisories (bun audit)
-        16 advisories (5 high), a maioria transitiva/dev. Notável:
-        @tanstack/start-server-core <1.167.30 — deserialização de request de
-        server-function pode invocar server function irmã referenciada no
-        cliente (moderate). ws (DoS), js-yaml (DoS), esbuild (dev-only).
-        Correção: `bun update` (semver) e reavaliar; o bump do TanStack Start
-        pede rebuild+teste. Não aplicado aqui para não arriscar o build sem
-        validar em conjunto.
+[~] 13. Dependências do frontend com advisories (bun audit)
+        Eram 16 advisories (5 high), a maioria transitiva/dev.
+        CORRIGIDO (2026-07-20): `bun update` (semver) → 4 advisories (2
+        moderate, 2 low). Resolvidos os 5 high e todos os de runtime, inclusive
+        @tanstack/react-start→1.168.32 (GHSA-9m65-766c-r333), undici (TLS
+        bypass/DoS/cross-origin), vite (fs.deny bypass) e ws (DoS). Build de
+        produção e lint revalidados.
+        RESTANTE (só tooling de build/dev, sem runtime): brace-expansion e
+        js-yaml (DoS moderate), esbuild (dev-server Windows) e @babel/core
+        (file read) — pedem breaking bumps upstream (`bun update --latest`),
+        reavaliar quando o TanStack/Vite publicarem as correções.
 
 [ ] 14. Webhook Mercado Pago sem checagem de frescor do ts (replay)
         backend/app/api/v1/payments.py:110 valida o HMAC do x-signature mas
