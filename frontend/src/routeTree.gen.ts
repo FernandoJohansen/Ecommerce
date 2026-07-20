@@ -9,46 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PerfilRouteImport } from './routes/perfil'
-import { Route as PedidosRouteImport } from './routes/pedidos'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as CarrinhoRouteImport } from './routes/carrinho'
-import { Route as CadastroRouteImport } from './routes/cadastro'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as RastreioPedidoIdRouteImport } from './routes/rastreio.$pedidoId'
-import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as CarrinhoRouteImport } from './routes/carrinho'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PedidosRouteImport } from './routes/pedidos'
+import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as PagamentoPedidoIdRouteImport } from './routes/pagamento.$pedidoId'
+import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
+import { Route as RastreioPedidoIdRouteImport } from './routes/rastreio.$pedidoId'
 
-const PerfilRoute = PerfilRouteImport.update({
-  id: '/perfil',
-  path: '/perfil',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PedidosRoute = PedidosRouteImport.update({
-  id: '/pedidos',
-  path: '/pedidos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CarrinhoRoute = CarrinhoRouteImport.update({
-  id: '/carrinho',
-  path: '/carrinho',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CadastroRoute = CadastroRouteImport.update({
-  id: '/cadastro',
-  path: '/cadastro',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -56,14 +31,39 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CadastroRoute = CadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RastreioPedidoIdRoute = RastreioPedidoIdRouteImport.update({
-  id: '/rastreio/$pedidoId',
-  path: '/rastreio/$pedidoId',
+const CarrinhoRoute = CarrinhoRouteImport.update({
+  id: '/carrinho',
+  path: '/carrinho',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidosRoute = PedidosRouteImport.update({
+  id: '/pedidos',
+  path: '/pedidos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PerfilRoute = PerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PagamentoPedidoIdRoute = PagamentoPedidoIdRouteImport.update({
+  id: '/pagamento/$pedidoId',
+  path: '/pagamento/$pedidoId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
@@ -71,9 +71,9 @@ const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
   path: '/produto/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PagamentoPedidoIdRoute = PagamentoPedidoIdRouteImport.update({
-  id: '/pagamento/$pedidoId',
-  path: '/pagamento/$pedidoId',
+const RastreioPedidoIdRoute = RastreioPedidoIdRouteImport.update({
+  id: '/rastreio/$pedidoId',
+  path: '/rastreio/$pedidoId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -175,46 +175,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/perfil': {
-      id: '/perfil'
-      path: '/perfil'
-      fullPath: '/perfil'
-      preLoaderRoute: typeof PerfilRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pedidos': {
-      id: '/pedidos'
-      path: '/pedidos'
-      fullPath: '/pedidos'
-      preLoaderRoute: typeof PedidosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/carrinho': {
-      id: '/carrinho'
-      path: '/carrinho'
-      fullPath: '/carrinho'
-      preLoaderRoute: typeof CarrinhoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cadastro': {
-      id: '/cadastro'
-      path: '/cadastro'
-      fullPath: '/cadastro'
-      preLoaderRoute: typeof CadastroRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -224,18 +189,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/rastreio/$pedidoId': {
-      id: '/rastreio/$pedidoId'
-      path: '/rastreio/$pedidoId'
-      fullPath: '/rastreio/$pedidoId'
-      preLoaderRoute: typeof RastreioPedidoIdRouteImport
+    '/carrinho': {
+      id: '/carrinho'
+      path: '/carrinho'
+      fullPath: '/carrinho'
+      preLoaderRoute: typeof CarrinhoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedidos': {
+      id: '/pedidos'
+      path: '/pedidos'
+      fullPath: '/pedidos'
+      preLoaderRoute: typeof PedidosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/perfil': {
+      id: '/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof PerfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pagamento/$pedidoId': {
+      id: '/pagamento/$pedidoId'
+      path: '/pagamento/$pedidoId'
+      fullPath: '/pagamento/$pedidoId'
+      preLoaderRoute: typeof PagamentoPedidoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/produto/$slug': {
@@ -245,11 +245,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProdutoSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pagamento/$pedidoId': {
-      id: '/pagamento/$pedidoId'
-      path: '/pagamento/$pedidoId'
-      fullPath: '/pagamento/$pedidoId'
-      preLoaderRoute: typeof PagamentoPedidoIdRouteImport
+    '/rastreio/$pedidoId': {
+      id: '/rastreio/$pedidoId'
+      path: '/rastreio/$pedidoId'
+      fullPath: '/rastreio/$pedidoId'
+      preLoaderRoute: typeof RastreioPedidoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
