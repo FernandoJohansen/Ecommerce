@@ -79,10 +79,6 @@ PEDIDO_EXPIRA_HORAS: int = int(os.getenv("PEDIDO_EXPIRA_HORAS", "24"))
 PAYMENT_TOKEN_SECRET: str = os.getenv("PAYMENT_TOKEN_SECRET", "") or SUPABASE_KEY
 PAYMENT_TOKEN_TTL_SEGUNDOS: int = int(os.getenv("PAYMENT_TOKEN_TTL_SEGUNDOS", str(7 * 86400)))
 
-ADMIN_EMAILS: set[str] = {
-    email.strip().lower() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip()
-}
-
 # ── Rate limit: resolução do IP real do cliente ──────────────────────────────
 # X-Forwarded-For é controlado pelo cliente; confiar no primeiro valor deixa o
 # rate limit forjável. Configure conforme o deploy:

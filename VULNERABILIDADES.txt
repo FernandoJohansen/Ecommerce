@@ -79,12 +79,19 @@ MÉDIA
        Obs.: no painel do Supabase, subir o min length do GoTrue p/ 8 e, se o
        plano permitir, ligar a leaked password protection (defesa em camada).
 
-[ ] 5. Bootstrap por ADMIN_EMAILS é escalonamento de privilégio
+[x] 5. Bootstrap por ADMIN_EMAILS é escalonamento de privilégio
        Arquivo: backend/app/dependencies/auth.py:21
        Concede admin a quem registrar um e-mail da lista enquanto não houver
        admin. Quem registrar antes da dona vira admin.
        Correção: semear o primeiro admin direto no banco (user_roles) e tirar
        ADMIN_EMAILS do caminho de concessão.
+       CORRIGIDO (2026-07-19): ADMIN_EMAILS removido do código (config,
+       resolve_role e list_users) — a única fonte de papel é a tabela
+       user_roles. Já existia um admin real semeado em produção, então nada a
+       migrar. Bootstrap de instalação nova passa a ser o script
+       backend/scripts/conceder_admin.py (roda com a service role, fora da
+       API). Testado: admin resolve via user_roles; usuário sem linha =
+       customer, com qualquer e-mail.
 
 [x] 6. Webhooks aceitam requisições sem assinatura / forjáveis
        Arquivo: backend/app/api/v1/payments.py:89,143 e main.py:35

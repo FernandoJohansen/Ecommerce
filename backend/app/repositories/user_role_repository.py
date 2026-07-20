@@ -11,11 +11,6 @@ def get_all_user_roles() -> dict[str, str]:
     return {row["user_id"]: row["role"] for row in result.data}
 
 
-def has_any_admin() -> bool:
-    result = supabase.table("user_roles").select("user_id").eq("role", "admin").limit(1).execute()
-    return bool(result.data)
-
-
 def upsert_user_role(user_id: str, role: str) -> dict:
     result = supabase.table("user_roles").upsert({"user_id": user_id, "role": role}).execute()
     return result.data[0] if result.data else {}
