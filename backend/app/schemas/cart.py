@@ -4,9 +4,9 @@ from app.schemas.order import DadosCliente
 
 
 class CartItemCreate(BaseModel):
-    produto_nome: str = Field(min_length=1)
-    tamanho: str = Field(min_length=1)
-    aroma: str = Field(min_length=1)
+    produto_nome: str = Field(min_length=1, max_length=120)
+    tamanho: str = Field(min_length=1, max_length=60)
+    aroma: str = Field(min_length=1, max_length=60)
     refil: bool = False
     quantidade: int = Field(default=1, ge=1, le=99)
 

@@ -65,9 +65,9 @@ class EnderecoEntrega(BaseModel):
 
 
 class PedidoItemCreate(BaseModel):
-    produto_nome: str = Field(min_length=1)
-    tamanho: str = Field(min_length=1)
-    aroma: str = Field(min_length=1)
+    produto_nome: str = Field(min_length=1, max_length=120)
+    tamanho: str = Field(min_length=1, max_length=60)
+    aroma: str = Field(min_length=1, max_length=60)
     refil: bool = False
     quantidade: int = Field(default=1, ge=1, le=99)
 
@@ -76,10 +76,10 @@ class DadosCliente(BaseModel):
     """Dados de cliente/entrega comuns ao pedido direto e ao checkout do carrinho."""
 
     nome_cliente: str = Field(min_length=2, max_length=120)
-    telefone: str
+    telefone: str = Field(max_length=30)
     # Exigido pelo Mercado Pago para boleto e antifraude de cartão.
     # CPF (11 dígitos) ou CNPJ (14 dígitos, compra como pessoa jurídica).
-    cpf_cnpj: str
+    cpf_cnpj: str = Field(max_length=25)
     endereco: EnderecoEntrega
     observacoes: str | None = Field(default=None, max_length=500)
     # Opção de frete escolhida no checkout; recotada no servidor. None quando
@@ -118,7 +118,7 @@ class DadosCliente(BaseModel):
 
 
 class PedidoCreate(DadosCliente):
-    itens: list[PedidoItemCreate] = Field(min_length=1)
+    itens: list[PedidoItemCreate] = Field(min_length=1, max_length=50)
 
 
 STATUS_PEDIDO = {"novo", "em_andamento", "pago", "enviado", "concluido", "cancelado"}

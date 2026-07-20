@@ -14,6 +14,7 @@ from app.core.config import (
     SICREDI_ENABLED,
     WEBHOOK_REQUIRE_SIGNATURE,
 )
+from app.core.bodylimit import BodySizeLimitMiddleware
 from app.core.ratelimit import limiter, rate_limit_handler
 from app.services.expiracao_service import expirar_pedidos_nao_pagos
 
@@ -65,6 +66,10 @@ app = FastAPI(title="Carolina Viapiana API", lifespan=lifespan)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+# Registrado antes do CORS de propósito: o último add_middleware fica por
+# fora, e o 413 precisa sair com os headers de CORS para o navegador ler.
+app.add_middleware(BodySizeLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

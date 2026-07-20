@@ -4,15 +4,15 @@ from pydantic import BaseModel, Field
 class FreteItem(BaseModel):
     """Item para cotação de frete (aroma não interessa para o peso)."""
 
-    produto_nome: str = Field(min_length=1)
-    tamanho: str = Field(min_length=1)
+    produto_nome: str = Field(min_length=1, max_length=120)
+    tamanho: str = Field(min_length=1, max_length=60)
     refil: bool = False
     quantidade: int = Field(default=1, ge=1, le=99)
 
 
 class CotacaoFreteRequest(BaseModel):
     cep: str = Field(min_length=8, max_length=9)
-    itens: list[FreteItem] = Field(min_length=1)
+    itens: list[FreteItem] = Field(min_length=1, max_length=50)
 
 
 class FreteOpcao(BaseModel):

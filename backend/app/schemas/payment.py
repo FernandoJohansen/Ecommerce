@@ -51,10 +51,10 @@ class ResumoPedidoPagamento(BaseModel):
 class PagamentoCartaoCreate(BaseModel):
     pedido_id: str
     # Token do cartão gerado pelo Card Payment Brick — nunca o número do cartão
-    token: str = Field(min_length=1)
-    payment_method_id: str = Field(min_length=1)  # ex.: "master", "visa"
-    issuer_id: str | None = None
-    installments: int = Field(default=1, ge=1)
+    token: str = Field(min_length=1, max_length=200)
+    payment_method_id: str = Field(min_length=1, max_length=50)  # ex.: "master", "visa"
+    issuer_id: str | None = Field(default=None, max_length=50)
+    installments: int = Field(default=1, ge=1, le=48)
     payer_email: str
 
     @field_validator("payer_email")
