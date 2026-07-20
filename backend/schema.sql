@@ -169,13 +169,12 @@ ALTER TABLE pagamentos   ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "produtos_public_read"  ON produtos FOR SELECT USING (ativo = TRUE);
 CREATE POLICY "aromas_public_read"    ON aromas   FOR SELECT USING (ativo = TRUE);
 
--- Orders are created exclusively through the backend (service role), which
--- computes prices/totals server-side — no public insert.
--- Only authenticated users (Supabase dashboard / service role) can read/manage orders and manage catalogue
-CREATE POLICY "pedidos_auth_all"      ON pedidos      FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "pedido_itens_auth_all" ON pedido_itens FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "produtos_auth_all"     ON produtos     FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "aromas_auth_all"       ON aromas       FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- Pedidos, itens e escrita no catálogo passam SÓ pelo backend (service role,
+-- que ignora RLS). Nada acessa essas tabelas com o papel `authenticated`, então
+-- não há policy para ele: RLS fica deny-by-default (só a service role entra).
+-- NÃO recriar policies "TO authenticated USING(true)" aqui — davam leitura de
+-- todos os pedidos (PII) a qualquer cliente logado. Ver
+-- migrations/2026-07-20_rls_hardening.sql.
 
 -- ── Grants ───────────────────────────────────────────────────────────────────
 -- Anon role can read products/aromas; everything else goes through the backend

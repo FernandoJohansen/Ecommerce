@@ -114,6 +114,53 @@ MÉDIA
        confirmação forjada.
 
 
+Achados da segunda rodada (2026-07-20):
+
+[~] 11. RLS ampla demais: "TO authenticated USING(true)" em pedidos/
+        pedido_itens/produtos/aromas (backend/schema.sql:175)
+        As policies liberavam LEITURA E ESCRITA de todos os pedidos (com PII e
+        documento em claro no banco) para QUALQUER usuário com papel
+        `authenticated` — não só o painel do Supabase, como o comentário
+        sugeria. Hoje NÃO é explorável: o backend usa a service role (ignora
+        RLS) e o frontend não tem cliente Supabase direto (fala só com o
+        backend, que mascara/filtra por dono). Vira rombo grave no dia em que
+        alguém plugar um cliente Supabase (anon key + JWT) no frontend.
+        CORRIGIDO NO CÓDIGO (2026-07-20): policies removidas do schema.sql;
+        RLS dessas tabelas fica deny-by-default para authenticated.
+        AÇÃO DE DEPLOY (pendente): aplicar
+        migrations/2026-07-20_rls_hardening.sql no banco de produção (psql via
+        session pooler). Nada no app depende dessas policies.
+
+[x] 12. Dependências do backend com CVEs conhecidos (pip-audit)
+        python-multipart 0.0.20 tinha 6 CVEs (PYSEC-2026-1852/3036-3040),
+        incluindo DoS no parser de multipart — caminho alcançável pelos
+        uploads de imagem. uv 0.11.14 (GHSA-4gg8-gxpx-9rph).
+        CORRIGIDO (2026-07-20): python-multipart→0.0.31, uv→0.11.15.
+        pip-audit limpo; import e upload de avatar validados.
+
+[ ] 13. Dependências do frontend com advisories (bun audit)
+        16 advisories (5 high), a maioria transitiva/dev. Notável:
+        @tanstack/start-server-core <1.167.30 — deserialização de request de
+        server-function pode invocar server function irmã referenciada no
+        cliente (moderate). ws (DoS), js-yaml (DoS), esbuild (dev-only).
+        Correção: `bun update` (semver) e reavaliar; o bump do TanStack Start
+        pede rebuild+teste. Não aplicado aqui para não arriscar o build sem
+        validar em conjunto.
+
+[ ] 14. Webhook Mercado Pago sem checagem de frescor do ts (replay)
+        backend/app/api/v1/payments.py:110 valida o HMAC do x-signature mas
+        não confere se `ts` é recente — uma notificação válida capturada pode
+        ser reenviada. Impacto baixo: o serviço SEMPRE reconfere o pagamento
+        direto no MP antes de confirmar, então replay não forja "pago"; risco
+        é só amplificação de cota (já com rate limit 60/min). Correção:
+        rejeitar ts fora de uma janela (ex. ±5 min).
+
+[ ] 15. /docs, /redoc e /openapi.json públicos
+        A superfície inteira da API fica exposta sem auth. Não é vuln por si,
+        reduz obscuridade. Correção opcional: FastAPI(docs_url=None,
+        redoc_url=None, openapi_url=None). Já anotado em docs/DEPLOY.md.
+
+
 BAIXA / HARDENING
 -----------------
 
