@@ -63,12 +63,21 @@ MÉDIA
        afetado). Testado: sem token, token forjado, token de outro pedido e
        pedido inexistente → 404; token válido → 200.
 
-[ ] 4. Política de senha fraca + enumeração de contas
+[x] 4. Política de senha fraca + enumeração de contas
        Arquivos: backend/app/schemas/auth.py:24 e api/v1/auth.py:109
        Senha mínima de 6 sem complexidade; signup devolve 409 distinto que
        permite enumerar e-mails cadastrados.
        Correção: mínimo 8-12 + checagem de senha vazada (GoTrue/HIBP);
        resposta de signup genérica.
+       CORRIGIDO (2026-07-19): mínimo 8 (NIST 800-63B, sem regras de
+       composição) + checagem de vazamento no signup via HIBP k-anonymity
+       (core/senha.py: só o prefixo de 5 hex do SHA-1 sai do servidor,
+       Add-Padding ligado, fail-open com warning se o HIBP cair). E-mail já
+       cadastrado agora responde 201 idêntico ao de cadastro pendente de
+       confirmação (o 409 foi removido); o texto do frontend cobre os dois
+       casos. Testado: senha vazada recusada, senha aleatória aceita.
+       Obs.: no painel do Supabase, subir o min length do GoTrue p/ 8 e, se o
+       plano permitir, ligar a leaked password protection (defesa em camada).
 
 [ ] 5. Bootstrap por ADMIN_EMAILS é escalonamento de privilégio
        Arquivo: backend/app/dependencies/auth.py:21

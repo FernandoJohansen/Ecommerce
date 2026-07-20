@@ -21,7 +21,9 @@ class SignupRequest(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
     phone: Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=20)]
     email: str
-    password: Annotated[str, StringConstraints(min_length=6, max_length=72)]
+    # Mínimo 8 (NIST 800-63B); sem regras de composição — o que barra senha
+    # fraca de verdade é a checagem de vazamento no signup (core/senha.py)
+    password: Annotated[str, StringConstraints(min_length=8, max_length=72)]
 
 
 class SignupResponse(BaseModel):

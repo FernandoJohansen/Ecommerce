@@ -12,6 +12,7 @@ from app.core.imagem import ler_upload_limitado, tipo_imagem_real
 from app.core.ratelimit import limiter
 from app.core.roles import ROLE_ADMIN
 from app.core.security import bearer_scheme
+from app.core.senha import senha_vazada
 from app.dependencies.auth import get_current_user, resolve_role
 from app.schemas.auth import (
     LoginRequest,
@@ -83,6 +84,11 @@ def login(request: Request, body: LoginRequest):
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute;20/hour")
 def signup(request: Request, body: SignupRequest):
+    if senha_vazada(body.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Esta senha apareceu em vazamentos de dados na internet. Escolha outra senha.",
+        )
     try:
         response = supabase_auth.auth.sign_up(
             {
@@ -102,12 +108,10 @@ def signup(request: Request, body: SignupRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Não foi possível criar a conta. Verifique os dados informados.",
         )
-    # Supabase returns a user with no identities (and no error) when the
-    # e-mail is already registered and confirmed.
-    if not response.session and not response.user.identities:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Este e-mail já está cadastrado."
-        )
+    # Supabase devolve um usuário sem identities (e sem erro) quando o e-mail
+    # já está cadastrado e confirmado. A resposta aqui é IGUAL à de um cadastro
+    # novo pendente de confirmação — um 409 distinto permitiria enumerar quais
+    # e-mails têm conta. O dono do e-mail simplesmente não recebe novo link.
     if response.session:
         return SignupResponse(
             access_token=response.session.access_token,

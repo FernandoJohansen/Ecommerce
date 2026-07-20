@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import { setToken } from "@/lib/auth";
 
 export const Route = createFileRoute("/cadastro")({
@@ -52,8 +52,13 @@ function CadastroPage() {
         return;
       }
       setAguardandoConfirmacao(true);
-    } catch {
-      setError("Não foi possível criar a conta. Verifique os dados ou tente outro e-mail.");
+    } catch (err) {
+      // O backend manda mensagem pronta (ex.: senha encontrada em vazamento)
+      setError(
+        err instanceof ApiError && err.detail
+          ? err.detail
+          : "Não foi possível criar a conta. Verifique os dados informados.",
+      );
     } finally {
       setLoading(false);
     }
@@ -68,9 +73,11 @@ function CadastroPage() {
             <span className="serif text-2xl">Carolina Viapiana</span>
           </Link>
           <h1 className="serif mb-4 text-3xl">Confirme seu e-mail</h1>
+          {/* Texto vale tanto para conta nova quanto para e-mail já cadastrado
+              (o backend responde igual nos dois casos, de propósito) */}
           <p className="mb-8 text-sm text-muted-foreground">
-            Enviamos um link de confirmação para <strong>{email}</strong>. Depois de confirmar, é só
-            entrar com sua senha.
+            Se <strong>{email}</strong> ainda não tiver conta, você vai receber um link de
+            confirmação. Depois de confirmar — ou se a conta já existir — é só entrar com sua senha.
           </p>
           <Link
             to="/login"
@@ -140,11 +147,11 @@ function CadastroPage() {
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
               autoComplete="new-password"
               className={inputClass}
             />
-            <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres.</p>
+            <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
