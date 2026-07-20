@@ -151,13 +151,17 @@ Achados da segunda rodada (2026-07-20):
         (file read) — pedem breaking bumps upstream (`bun update --latest`),
         reavaliar quando o TanStack/Vite publicarem as correções.
 
-[ ] 14. Webhook Mercado Pago sem checagem de frescor do ts (replay)
-        backend/app/api/v1/payments.py:110 valida o HMAC do x-signature mas
-        não confere se `ts` é recente — uma notificação válida capturada pode
+[x] 14. Webhook Mercado Pago sem checagem de frescor do ts (replay)
+        backend/app/api/v1/payments.py valida o HMAC do x-signature mas não
+        conferia se `ts` era recente — uma notificação válida capturada podia
         ser reenviada. Impacto baixo: o serviço SEMPRE reconfere o pagamento
-        direto no MP antes de confirmar, então replay não forja "pago"; risco
-        é só amplificação de cota (já com rate limit 60/min). Correção:
-        rejeitar ts fora de uma janela (ex. ±5 min).
+        direto no MP antes de confirmar, então replay não forjava "pago"; risco
+        era só amplificação de cota (já com rate limit 60/min).
+        CORRIGIDO (2026-07-20): _validar_frescor_ts recusa (401) ts fora de
+        MERCADO_PAGO_WEBHOOK_TOLERANCIA_SEGUNDOS (default 300s; 0 desliga). O ts
+        está dentro do manifesto assinado, então adulterá-lo quebra o HMAC
+        antes. Aceita ts em ms (formato MP) ou segundos. Testado: fresco+válido
+        aceito, replay de 10 min recusado, ts adulterado recusado.
 
 [ ] 15. /docs, /redoc e /openapi.json públicos
         A superfície inteira da API fica exposta sem auth. Não é vuln por si,

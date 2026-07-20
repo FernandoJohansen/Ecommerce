@@ -1,9 +1,14 @@
 import hashlib
 import hmac
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.core.config import MERCADO_PAGO_WEBHOOK_SECRET, WEBHOOK_REQUIRE_SIGNATURE
+from app.core.config import (
+    MERCADO_PAGO_WEBHOOK_SECRET,
+    MERCADO_PAGO_WEBHOOK_TOLERANCIA_SEGUNDOS,
+    WEBHOOK_REQUIRE_SIGNATURE,
+)
 from app.core.ratelimit import limiter
 from app.dependencies.auth import get_optional_user, get_staff_user
 from app.services.audit_service import registrar_auditoria
@@ -135,6 +140,24 @@ def _validar_assinatura_mp(request: Request, data_id: str) -> None:
     ).hexdigest()
     if not hmac.compare_digest(esperado, v1):
         raise HTTPException(status_code=401, detail="Assinatura do webhook inválida")
+
+    # Anti-replay: o ts está dentro do manifesto assinado, então já é confiável
+    # aqui. Recusa notificação antiga reenviada (a reconferência no MP evita
+    # forjar "pago", mas isto corta amplificação de cota por replay).
+    _validar_frescor_ts(ts)
+
+
+def _validar_frescor_ts(ts: str | None) -> None:
+    if MERCADO_PAGO_WEBHOOK_TOLERANCIA_SEGUNDOS <= 0 or not ts:
+        return
+    try:
+        valor = int(ts)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Timestamp do webhook inválido")
+    # O MP manda o ts em milissegundos; tolera segundos por robustez.
+    ts_segundos = valor / 1000 if valor > 10**11 else valor
+    if abs(time.time() - ts_segundos) > MERCADO_PAGO_WEBHOOK_TOLERANCIA_SEGUNDOS:
+        raise HTTPException(status_code=401, detail="Notificação do webhook expirada")
 
 
 # Notificação do Mercado Pago (cartão/boleto). Mesmo com assinatura válida o

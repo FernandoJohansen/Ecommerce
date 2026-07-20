@@ -33,6 +33,12 @@ MERCADO_PAGO_ACCESS_TOKEN: str = os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "")
 # Assinatura secreta da tela de Webhooks do painel MP (opcional; habilita a
 # validação do header x-signature)
 MERCADO_PAGO_WEBHOOK_SECRET: str = os.getenv("MERCADO_PAGO_WEBHOOK_SECRET", "")
+# Janela de frescor do ts assinado no x-signature (anti-replay). O ts entra no
+# manifesto do HMAC, então já vem autenticado; recusar ts fora desta janela
+# bloqueia o reenvio de uma notificação antiga capturada. 0 desliga a checagem.
+MERCADO_PAGO_WEBHOOK_TOLERANCIA_SEGUNDOS: int = int(
+    os.getenv("MERCADO_PAGO_WEBHOOK_TOLERANCIA_SEGUNDOS", "300")
+)
 # URL pública deste backend enviada como notification_url em cada pagamento:
 # https://SEU-BACKEND/api/pagamento/webhook/mercadopago
 MERCADO_PAGO_WEBHOOK_URL: str = os.getenv("MERCADO_PAGO_WEBHOOK_URL", "")
