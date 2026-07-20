@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
 import { ApiError, apiFetch } from "@/lib/api";
+import { headersPagamento } from "@/lib/pagamento-token";
 import { PagamentoConfirmado, type PagamentoMp } from "./comum";
 
 const PUBLIC_KEY = import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY as string | undefined;
@@ -30,7 +31,8 @@ export function CartaoView({ pedidoId, totalCentavos, maxParcelas }: Props) {
   // Cartão em análise (in_process): acompanha até o MP decidir
   const poll = useQuery<PagamentoMp>({
     queryKey: ["mp-status", tentativa?.id],
-    queryFn: () => apiFetch(`/pagamento/mp/${tentativa!.id}`),
+    queryFn: () =>
+      apiFetch(`/pagamento/mp/${tentativa!.id}`, { headers: headersPagamento(pedidoId) }),
     enabled: tentativa !== null && tentativa.situacao === "pendente",
     refetchInterval: (query) => (query.state.data?.situacao === "pendente" ? 5000 : false),
   });
@@ -83,7 +85,7 @@ export function CartaoView({ pedidoId, totalCentavos, maxParcelas }: Props) {
     try {
       const resposta = await apiFetch<PagamentoMp>("/pagamento/cartao", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headersPagamento(pedidoId) },
         body: JSON.stringify({
           pedido_id: pedidoId,
           token: formData.token,

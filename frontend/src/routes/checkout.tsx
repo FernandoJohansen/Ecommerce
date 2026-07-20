@@ -17,6 +17,7 @@ import { ApiError, apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { formatarPreco, precoUnitario, type ProdutoApi } from "@/lib/precos";
 import { lerItemDireto, limparItemDireto, type ItemDireto } from "@/lib/checkout";
+import { salvarTokenPagamento } from "@/lib/pagamento-token";
 
 export const Route = createFileRoute("/checkout")({
   validateSearch: (search: Record<string, unknown>): { direto?: true } => ({
@@ -71,6 +72,7 @@ type ItemCarrinho = {
 type PedidoCriado = {
   id: string;
   total_centavos: number;
+  token_pagamento: string | null;
 };
 
 type FreteOpcao = {
@@ -317,6 +319,7 @@ function CheckoutPage() {
     onSuccess: (pedido) => {
       if (modoDireto) limparItemDireto();
       else queryClient.setQueryData(["carrinho"], []);
+      salvarTokenPagamento(pedido.id, pedido.token_pagamento);
       navigate({ to: "/pagamento/$pedidoId", params: { pedidoId: pedido.id } });
     },
   });

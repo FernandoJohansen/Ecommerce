@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 
+from app.core.payment_token import gerar_token_pagamento
 from app.core.ratelimit import limiter
 from app.dependencies.auth import get_current_user
 from app.schemas.cart import (
@@ -50,4 +51,7 @@ def delete_cart(user=Depends(get_current_user)):
 @router.post("/finalizar", response_model=PedidoResponse, status_code=201)
 @limiter.limit("5/minute;30/hour")
 def finalize_cart(request: Request, body: CartCheckoutRequest, user=Depends(get_current_user)):
-    return checkout_cart(user, body)
+    criado = checkout_cart(user, body)
+    # Mesmo logado, o token deixa a tela de pagamento funcionar se a sessão
+    # expirar no meio do fluxo
+    return {**criado, "token_pagamento": gerar_token_pagamento(criado["id"])}

@@ -12,6 +12,7 @@ from app.core.config import (
     MERCADO_PAGO_ENABLED,
     MERCADO_PAGO_WEBHOOK_SECRET,
     SICREDI_ENABLED,
+    WEBHOOK_REQUIRE_SIGNATURE,
 )
 from app.core.ratelimit import limiter, rate_limit_handler
 from app.services.expiracao_service import expirar_pedidos_nao_pagos
@@ -33,12 +34,21 @@ async def _expirar_pedidos_loop() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     if MERCADO_PAGO_ENABLED and not MERCADO_PAGO_WEBHOOK_SECRET:
-        logger.warning(
-            "MERCADO_PAGO_WEBHOOK_SECRET não configurado: o webhook do Mercado "
-            "Pago aceita chamadas sem assinatura (o status é sempre reconferido "
-            "no MP, mas configure o secret no painel de Webhooks — ver "
-            "PENDENCIAS.txt, Sprint 6b passo 4)."
-        )
+        if WEBHOOK_REQUIRE_SIGNATURE:
+            logger.warning(
+                "MERCADO_PAGO_WEBHOOK_SECRET não configurado e "
+                "WEBHOOK_REQUIRE_SIGNATURE=true: o webhook do Mercado Pago vai "
+                "RECUSAR (503) todas as notificações até o secret ser definido "
+                "no painel de Webhooks do MP."
+            )
+        else:
+            logger.warning(
+                "MERCADO_PAGO_WEBHOOK_SECRET não configurado: o webhook do Mercado "
+                "Pago aceita chamadas sem assinatura (o status é sempre reconferido "
+                "no MP, mas configure o secret no painel de Webhooks e ligue "
+                "WEBHOOK_REQUIRE_SIGNATURE=true em produção — ver PENDENCIAS.txt, "
+                "Sprint 6b passo 4)."
+            )
     # Sem PSP configurado, todo pedido é negociado manualmente pelo WhatsApp e
     # não deve expirar (comportamento de antes do Sprint 6).
     task = (
@@ -60,7 +70,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Payment-Token"],
 )
 
 api_router = APIRouter(prefix="/api")

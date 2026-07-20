@@ -8,7 +8,7 @@ from supabase_auth.errors import AuthApiError
 
 from app.core.config import SUPABASE_KEY, SUPABASE_URL
 from app.core.database import supabase, supabase_auth
-from app.core.imagem import tipo_imagem_real
+from app.core.imagem import ler_upload_limitado, tipo_imagem_real
 from app.core.ratelimit import limiter
 from app.core.roles import ROLE_ADMIN
 from app.core.security import bearer_scheme
@@ -151,12 +151,15 @@ def update_profile(
 
 
 @router.post("/me/avatar", response_model=ProfileResponse)
+@limiter.limit("10/minute;60/hour")
 async def upload_avatar(
+    request: Request,
     file: UploadFile = File(...),
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     user=Depends(get_current_user),
 ):
-    content = await file.read()
+    # Lê com corte no limite antes de carregar o corpo todo na memória.
+    content = await ler_upload_limitado(file, AVATAR_MAX_BYTES)
     # Valida pelos magic bytes, não pelo Content-Type do cliente; o tipo
     # detectado é o que vai para o storage.
     tipo_real = tipo_imagem_real(content)
@@ -165,11 +168,6 @@ async def upload_avatar(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Formato inválido. Envie uma imagem JPG, PNG ou WebP.",
-        )
-    if len(content) > AVATAR_MAX_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Imagem muito grande. O limite é 2MB.",
         )
 
     path = f"{user.id}.{ext}"

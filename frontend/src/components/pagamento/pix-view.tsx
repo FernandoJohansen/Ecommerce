@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ApiError, apiFetch } from "@/lib/api";
+import { headersPagamento } from "@/lib/pagamento-token";
 import { formatarPreco } from "@/lib/precos";
 import { PagamentoConfirmado } from "./comum";
 
@@ -25,7 +26,7 @@ export function PixView({ pedidoId }: { pedidoId: string }) {
     queryFn: () =>
       apiFetch("/pagamento/pix", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headersPagamento(pedidoId) },
         body: JSON.stringify({ pedido_id: pedidoId }),
       }),
     staleTime: Infinity,
@@ -35,7 +36,7 @@ export function PixView({ pedidoId }: { pedidoId: string }) {
   const txid = criar.data?.txid;
   const status = useQuery<CobrancaPix>({
     queryKey: ["pix-status", txid],
-    queryFn: () => apiFetch(`/pagamento/pix/${txid}`),
+    queryFn: () => apiFetch(`/pagamento/pix/${txid}`, { headers: headersPagamento(pedidoId) }),
     enabled: !!txid,
     refetchInterval: (query) => (query.state.data?.status === "ATIVA" ? 5000 : false),
   });

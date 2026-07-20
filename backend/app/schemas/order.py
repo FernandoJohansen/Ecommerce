@@ -177,3 +177,6 @@ class PedidoResponse(BaseModel):
     status: str
     created_at: str | None = None
     itens: list[PedidoItemResponse] = []
+    # Devolvido só na criação do pedido: credencial de acesso aos endpoints
+    # públicos de pagamento (header X-Payment-Token)
+    token_pagamento: str | None = None

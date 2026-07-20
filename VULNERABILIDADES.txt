@@ -1,0 +1,134 @@
+VULNERABILIDADES — Carolina Viapiana (pré-pentest)
+====================================================
+Revisão de segurança de 2026-07-18. Severidade em ordem de risco real.
+Marque [x] conforme forem corrigidas.
+
+Legenda: [ ] pendente  [~] em andamento  [x] corrigida
+
+
+ALTA
+----
+
+[x] 1. Bypass do rate limit por X-Forwarded-For forjado
+       Arquivo: backend/app/core/ratelimit.py:16
+       O _client_ip confia cegamente no primeiro valor de X-Forwarded-For,
+       que é controlado pelo cliente. Rotacionando o header, todo @limiter.limit
+       vira inócuo — abre brute force no /auth/login, criação de pedidos em
+       massa (cada um reserva estoque) e abuso de cota do PSP/Melhor Envio.
+       Correção: só confiar no header quando a conexão vier de um proxy
+       conhecido (Cloudflare: CF-Connecting-IP); senão usar o IP do peer.
+       CORRIGIDO (2026-07-18): _client_ip reescrito. Default seguro = IP da
+       conexão (peer), ignorando X-Forwarded-For. Dois modos configuráveis:
+       RATE_LIMIT_CLIENT_IP_HEADER (ex. cf-connecting-ip) ou
+       RATE_LIMIT_TRUSTED_PROXY_HOPS (lê o IP a N posições do FIM do XFF, à
+       prova de valores injetados à esquerda). Testado contra spoofing.
+       AÇÃO DE DEPLOY: setar uma das duas vars conforme a infra (Railway/Render
+       ~ HOPS=1; atrás de Cloudflare = cf-connecting-ip).
+
+[x] 2. Leitura de upload sem limite antes da checagem de tamanho (DoS de memória)
+       Arquivos: backend/app/api/v1/auth.py:159 e products.py:62
+       content = await file.read() carrega o upload inteiro na RAM e só depois
+       compara com o limite. Upload de vários GB derruba o worker. O endpoint
+       de avatar ainda não tem rate limit.
+       Correção: ler em blocos com corte rígido no limite; adicionar rate limit
+       ao POST /auth/me/avatar.
+       CORRIGIDO (2026-07-18): novo core/imagem.py:ler_upload_limitado() lê em
+       blocos de 64KB e aborta com 413 assim que passa do limite (avatar 2MB,
+       produto 5MB). Aplicado em POST /auth/me/avatar e POST /produtos/{id}/
+       imagens. Avatar agora tem rate limit (10/min;60/hora).
+
+
+MÉDIA
+-----
+
+[x] 3. Divulgação de dados de pedido sem autenticação (IDOR nos pagamentos)
+       Arquivo: backend/app/api/v1/payments.py:46,60,64,82
+       resumo/{pedido_id}, POST /pix, /pix/{txid}, /mp/{mp_payment_id} são
+       públicos. Protegidos só pela imprevisibilidade do UUID, que vaza por
+       Referer/logs/histórico. Falta autorização a nível de objeto.
+       Correção: exigir token e escopo por user_id onde der; para convidado,
+       usar token de pagamento de curta duração e alta entropia.
+       CORRIGIDO (2026-07-19): autorização a nível de objeto em todos os
+       endpoints de pagamento (resumo, POST/GET pix, cartão, boleto, mp/{id}),
+       via payment_service.exigir_acesso_pedido(). Libera: dono logado
+       (Bearer + user_id do pedido), staff/admin, ou o novo token de pagamento
+       — HMAC-SHA256 (core/payment_token.py) vinculado ao pedido_id, validade
+       7 dias (cobre o ciclo do boleto), devolvido na criação do pedido
+       (POST /pedidos e /carrinho/finalizar) e enviado pelo frontend no header
+       X-Payment-Token (guardado no localStorage por pedido). Recusa = 404
+       idêntico ao de pedido inexistente (não confirma o UUID). Segredo:
+       PAYMENT_TOKEN_SECRET (opcional; deriva do SUPABASE_KEY se ausente).
+       Obs.: pedidos de convidado criados ANTES do deploy ficam sem token — o
+       link de pagamento antigo passa a responder 404 (comprador logado não é
+       afetado). Testado: sem token, token forjado, token de outro pedido e
+       pedido inexistente → 404; token válido → 200.
+
+[ ] 4. Política de senha fraca + enumeração de contas
+       Arquivos: backend/app/schemas/auth.py:24 e api/v1/auth.py:109
+       Senha mínima de 6 sem complexidade; signup devolve 409 distinto que
+       permite enumerar e-mails cadastrados.
+       Correção: mínimo 8-12 + checagem de senha vazada (GoTrue/HIBP);
+       resposta de signup genérica.
+
+[ ] 5. Bootstrap por ADMIN_EMAILS é escalonamento de privilégio
+       Arquivo: backend/app/dependencies/auth.py:21
+       Concede admin a quem registrar um e-mail da lista enquanto não houver
+       admin. Quem registrar antes da dona vira admin.
+       Correção: semear o primeiro admin direto no banco (user_roles) e tirar
+       ADMIN_EMAILS do caminho de concessão.
+
+[x] 6. Webhooks aceitam requisições sem assinatura / forjáveis
+       Arquivo: backend/app/api/v1/payments.py:89,143 e main.py:35
+       Sicredi sem verificação de assinatura; Mercado Pago pula a validação
+       quando MERCADO_PAGO_WEBHOOK_SECRET não está setado (só loga warning).
+       Nenhum dos dois tem rate limit. Confirmação de pagamento está protegida
+       (reconferência no PSP), mas há risco de amplificação/DoS de cota.
+       Correção: exigir assinatura sempre (fail-closed em produção quando o
+       secret faltar); rate limit nos dois webhooks.
+       CORRIGIDO (2026-07-18): rate limit 60/min nos dois webhooks (/webhook/pix
+       e /webhook/mercadopago) contra amplificação/DoS de cota. Nova var
+       WEBHOOK_REQUIRE_SIGNATURE: com true, o webhook do MP recusa (503) quando
+       o secret não está configurado (fail-closed), em vez de aceitar sem
+       validar. Warning de boot atualizado.
+       AÇÃO DE DEPLOY: gerar o secret no painel de Webhooks do MP, setar
+       MERCADO_PAGO_WEBHOOK_SECRET e WEBHOOK_REQUIRE_SIGNATURE=true em produção.
+       PENDENTE (item aberto): Sicredi PIX não usa HMAC como o MP — o reforço de
+       origem é mTLS/allowlist de IP no receiver do webhook, fora do escopo
+       desta correção. O rate limit + reconferência no PSP já cobrem o risco de
+       confirmação forjada.
+
+
+BAIXA / HARDENING
+-----------------
+
+[ ] 7. JWT em localStorage
+       Arquivo: frontend/src/lib/auth.ts:13
+       Token exfiltrável por XSS. Superfície de XSS hoje é mínima. Trade-off
+       conhecido; manter a superfície de XSS em zero ou migrar p/ cookie
+       httpOnly/Secure/SameSite.
+
+[ ] 8. Falta de headers de segurança
+       Sem HSTS, X-Content-Type-Options, frame-ancestors/CSP, Referrer-Policy.
+       Correção: middleware na API + CSP/HSTS no frontend (Cloudflare).
+       Referrer-Policy no-referrer ajuda com o item 3.
+
+[ ] 9. Chave service-role é segredo único de tudo
+       Arquivo: backend/app/core/database.py
+       SUPABASE_KEY (service role) ignora RLS e lista usuários. Vazou = banco
+       e contas comprometidos. Está no .gitignore (só .env.example versionado).
+       Correção: nunca logar, rotacionar se o servidor/repo já foi compartilhado,
+       .env com chmod 600.
+
+[ ] 10. Dumps de backup contêm CPF/CNPJ em claro + PII
+        Arquivo: scripts/backup_db.sh
+        Dump traz dados pessoais sem máscara (o próprio script avisa).
+        Correção: criptografar os .dump em repouso (age/gpg) — LGPD.
+
+
+NOTA — já está correto (não regredir):
+  - Sem SQL injection: tudo via query builder do Supabase / RPC parametrizada.
+  - Preço/total/frete sempre recalculados no servidor; valor do cliente ignorado.
+  - Upload validado por magic bytes, não por Content-Type.
+  - CORS não reflete origem nem permite credenciais; auth por header (sem CSRF).
+  - Webhooks reconferem status direto no PSP antes de marcar como pago.
+  - CPF/CNPJ mascarado em toda resposta da API.

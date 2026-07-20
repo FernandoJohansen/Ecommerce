@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, apiFetch } from "@/lib/api";
+import { headersPagamento } from "@/lib/pagamento-token";
 import { formatarPreco } from "@/lib/precos";
 import { PagamentoConfirmado, type PagamentoMp } from "./comum";
 
@@ -31,14 +32,15 @@ export function BoletoView({ pedidoId, temDocumento }: Props) {
     mutationFn: (): Promise<PagamentoMp> =>
       apiFetch("/pagamento/boleto", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headersPagamento(pedidoId) },
         body: JSON.stringify({ pedido_id: pedidoId, email: email.trim() }),
       }),
   });
 
   const poll = useQuery<PagamentoMp>({
     queryKey: ["mp-status", gerar.data?.id],
-    queryFn: () => apiFetch(`/pagamento/mp/${gerar.data!.id}`),
+    queryFn: () =>
+      apiFetch(`/pagamento/mp/${gerar.data!.id}`, { headers: headersPagamento(pedidoId) }),
     enabled: gerar.data !== undefined && gerar.data.situacao === "pendente",
     // Boleto não muda em segundos; 30s é suficiente
     refetchInterval: (query) => (query.state.data?.situacao === "pendente" ? 30000 : false),

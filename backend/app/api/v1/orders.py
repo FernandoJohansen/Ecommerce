@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 
+from app.core.payment_token import gerar_token_pagamento
 from app.core.ratelimit import limiter
 from app.dependencies.auth import get_current_user, get_optional_user, get_staff_user
 from app.schemas.order import PedidoCreate, PedidoResponse, PedidoUpdate
@@ -21,7 +22,10 @@ router = APIRouter()
 @router.post("/pedidos", response_model=PedidoResponse, status_code=201)
 @limiter.limit("5/minute;30/hour")
 def post_pedido(request: Request, pedido: PedidoCreate, user=Depends(get_optional_user)):
-    return create_pedido(pedido, user_id=user.id if user else None)
+    criado = create_pedido(pedido, user_id=user.id if user else None)
+    # Credencial dos endpoints de pagamento — convidado não tem outra forma
+    # de provar que o pedido é dele (o UUID sozinho não dá acesso)
+    return {**criado, "token_pagamento": gerar_token_pagamento(criado["id"])}
 
 
 @router.get("/pedidos")

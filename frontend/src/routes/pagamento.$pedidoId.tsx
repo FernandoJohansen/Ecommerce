@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import { ApiError, apiFetch } from "@/lib/api";
+import { headersPagamento } from "@/lib/pagamento-token";
 import { PagamentoConfirmado } from "@/components/pagamento/comum";
 import { PixView } from "@/components/pagamento/pix-view";
 import { CartaoView } from "@/components/pagamento/cartao-view";
@@ -54,7 +55,8 @@ function PagamentoPage() {
 
   const resumoQuery = useQuery<ResumoPedido>({
     queryKey: ["pagamento-resumo", pedidoId],
-    queryFn: () => apiFetch(`/pagamento/resumo/${pedidoId}`),
+    queryFn: () =>
+      apiFetch(`/pagamento/resumo/${pedidoId}`, { headers: headersPagamento(pedidoId) }),
     retry: false,
   });
   const resumo = resumoQuery.data;
@@ -114,7 +116,10 @@ function PagamentoPage() {
         <div className="border border-border p-8 text-center sm:p-12">
           {pedidoNaoEncontrado && (
             <>
-              <p className="mb-6 text-sm text-muted-foreground">Pedido não encontrado.</p>
+              <p className="mb-6 text-sm text-muted-foreground">
+                Pedido não encontrado — ou este link de pagamento expirou. Se você tem conta, entre
+                para acessar o pedido em Meus pedidos.
+              </p>
               <Button
                 asChild
                 variant="outline"

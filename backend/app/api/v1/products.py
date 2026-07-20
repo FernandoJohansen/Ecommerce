@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, UploadFile
 
+from app.core.imagem import ler_upload_limitado
 from app.dependencies.auth import get_staff_user
 from app.services.audit_service import registrar_auditoria
 from app.schemas.product import (
@@ -10,6 +11,7 @@ from app.schemas.product import (
     ProdutoUpdate,
 )
 from app.services.product_service import (
+    IMAGEM_MAX_BYTES,
     adicionar_imagem,
     atualizar_produto,
     criar_produto,
@@ -59,7 +61,8 @@ def patch_estoque(produto_id: str, body: EstoqueUpdate, user=Depends(get_staff_u
 
 @router.post("/produtos/{produto_id}/imagens", status_code=201)
 async def post_imagem(produto_id: str, file: UploadFile = File(...), user=Depends(get_staff_user)):
-    content = await file.read()
+    # Lê com corte no limite antes de carregar o corpo todo na memória.
+    content = await ler_upload_limitado(file, IMAGEM_MAX_BYTES)
     result = adicionar_imagem(produto_id, content)
     imagens = result.get("imagens") or []
     registrar_auditoria(

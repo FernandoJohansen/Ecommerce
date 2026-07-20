@@ -13,6 +13,9 @@ from app.core.config import (
     PIX_WEBHOOK_URL,
     SICREDI_ENABLED,
 )
+from app.core.payment_token import token_pagamento_valido
+from app.core.roles import ROLE_STAFF, role_at_least
+from app.dependencies.auth import resolve_role
 from app.repositories.order_repository import get_pedido_by_id, update_pedido
 from app.repositories.payment_repository import (
     get_pagamento_by_mp_id,
@@ -82,6 +85,25 @@ def _cobranca_vigente(row: dict) -> bool:
     return datetime.now(timezone.utc) < criado_em + timedelta(seconds=EXPIRACAO_SEGUNDOS)
 
 
+def exigir_acesso_pedido(
+    pedido_id: str, user, token_pagamento: str | None, detail: str = "Pedido não encontrado"
+) -> None:
+    """Autorização a nível de objeto dos endpoints de pagamento: saber o UUID
+    do pedido não basta (ele vaza por Referer/logs/histórico). Libera o dono
+    logado, staff/admin ou quem apresenta o token de pagamento devolvido na
+    criação do pedido. A recusa é 404 igual à de pedido inexistente, para não
+    confirmar que o UUID existe."""
+    if token_pagamento and token_pagamento_valido(token_pagamento, pedido_id):
+        return
+    if user is not None:
+        pedido = get_pedido_by_id(pedido_id)
+        if pedido and pedido.get("user_id") == user.id:
+            return
+        if role_at_least(resolve_role(user.id, user.email), ROLE_STAFF):
+            return
+    raise HTTPException(status_code=404, detail=detail)
+
+
 def _validar_pedido_para_pagamento(pedido_id: str) -> dict:
     pedido = get_pedido_by_id(pedido_id)
     if not pedido:
@@ -95,7 +117,9 @@ def _validar_pedido_para_pagamento(pedido_id: str) -> dict:
     return pedido
 
 
-def criar_cobranca_pix(pedido_id: str) -> dict:
+def criar_cobranca_pix(pedido_id: str, user, token_pagamento: str | None) -> dict:
+    # Antes de validar: os 409/422 de status revelariam dados do pedido
+    exigir_acesso_pedido(pedido_id, user, token_pagamento)
     pedido = _validar_pedido_para_pagamento(pedido_id)
 
     # Reaproveita a cobrança ativa mais recente dentro do prazo, para o cliente
@@ -152,10 +176,13 @@ def _aplicar_status_cob(row: dict, cob: dict) -> dict:
     return atualizado
 
 
-def consultar_pagamento(txid: str) -> dict:
+def consultar_pagamento(txid: str, user, token_pagamento: str | None) -> dict:
     row = get_pagamento_by_txid(txid)
     if not row:
         raise HTTPException(status_code=404, detail="Pagamento não encontrado")
+    exigir_acesso_pedido(
+        row["pedido_id"], user, token_pagamento, detail="Pagamento não encontrado"
+    )
     if row["status"] == "ATIVA":
         try:
             cob = sicredi_client.consultar_cob(txid)
@@ -210,9 +237,10 @@ def listar_metodos() -> dict:
     }
 
 
-def resumo_pedido_para_pagamento(pedido_id: str) -> dict:
+def resumo_pedido_para_pagamento(pedido_id: str, user, token_pagamento: str | None) -> dict:
     """Dados mínimos do pedido para a tela de pagamento (inclui convidados):
     o Brick de cartão precisa do valor antes de existir pagamento."""
+    exigir_acesso_pedido(pedido_id, user, token_pagamento)
     pedido = get_pedido_by_id(pedido_id)
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
@@ -298,9 +326,12 @@ def _identificacao_mp(pedido: dict) -> dict:
     return {"type": "CNPJ" if len(documento) == 14 else "CPF", "number": documento}
 
 
-def criar_pagamento_cartao(dados: PagamentoCartaoCreate) -> dict:
+def criar_pagamento_cartao(
+    dados: PagamentoCartaoCreate, user, token_pagamento: str | None
+) -> dict:
     """Cada submit do Brick é uma tentativa nova (token novo, pagamento novo no
     MP) — recusas ficam no histórico e nunca bloqueiam nova tentativa."""
+    exigir_acesso_pedido(dados.pedido_id, user, token_pagamento)
     mercadopago_client.exigir_mercado_pago()
     pedido = _validar_pedido_para_pagamento(dados.pedido_id)
     if _pedido_ja_aprovado(dados.pedido_id):
@@ -367,7 +398,10 @@ def _boleto_vigente(row: dict) -> bool:
         return False
 
 
-def criar_pagamento_boleto(dados: PagamentoBoletoCreate) -> dict:
+def criar_pagamento_boleto(
+    dados: PagamentoBoletoCreate, user, token_pagamento: str | None
+) -> dict:
+    exigir_acesso_pedido(dados.pedido_id, user, token_pagamento)
     mercadopago_client.exigir_mercado_pago()
     pedido = _validar_pedido_para_pagamento(dados.pedido_id)
     if _pedido_ja_aprovado(dados.pedido_id):
@@ -440,10 +474,13 @@ def criar_pagamento_boleto(dados: PagamentoBoletoCreate) -> dict:
     return _resposta_mp(row)
 
 
-def consultar_pagamento_mp(mp_payment_id: str) -> dict:
+def consultar_pagamento_mp(mp_payment_id: str, user, token_pagamento: str | None) -> dict:
     row = get_pagamento_by_mp_id(mp_payment_id)
     if not row:
         raise HTTPException(status_code=404, detail="Pagamento não encontrado")
+    exigir_acesso_pedido(
+        row["pedido_id"], user, token_pagamento, detail="Pagamento não encontrado"
+    )
     if _situacao(row) == "pendente":
         try:
             mp = mercadopago_client.consultar_pagamento(mp_payment_id)
