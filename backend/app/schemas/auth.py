@@ -45,3 +45,12 @@ class ProfileResponse(BaseModel):
 
 class ProfileUpdateRequest(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+
+
+class RecuperarSenhaRequest(BaseModel):
+    email: str
+
+
+class RedefinirSenhaRequest(BaseModel):
+    access_token: str
+    password: Annotated[str, StringConstraints(min_length=8, max_length=72)]

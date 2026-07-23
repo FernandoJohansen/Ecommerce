@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials
 from supabase_auth.errors import AuthApiError
 
-from app.core.config import SUPABASE_KEY, SUPABASE_URL
+from app.core.config import FRONTEND_URL, SUPABASE_KEY, SUPABASE_URL
 from app.core.database import supabase, supabase_auth
 from app.core.imagem import ler_upload_limitado, tipo_imagem_real
 from app.core.ratelimit import limiter
@@ -19,6 +19,8 @@ from app.schemas.auth import (
     LoginResponse,
     ProfileResponse,
     ProfileUpdateRequest,
+    RecuperarSenhaRequest,
+    RedefinirSenhaRequest,
     SignupRequest,
     SignupResponse,
 )
@@ -189,3 +191,40 @@ async def upload_avatar(
 
     data = _update_user_metadata(credentials.credentials, {"avatar_url": avatar_url})
     return _profile_from_gotrue(data)
+
+
+@router.post("/recuperar-senha", status_code=204)
+@limiter.limit("3/minute;10/hour")
+def recuperar_senha(request: Request, body: RecuperarSenhaRequest):
+    # Always 204 regardless of whether the e-mail exists — prevents enumeration.
+    try:
+        httpx.post(
+            f"{SUPABASE_URL}/auth/v1/recover",
+            headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+            params={"redirect_to": f"{FRONTEND_URL}/redefinir-senha"},
+            json={"email": body.email},
+            timeout=10,
+        )
+    except Exception as e:
+        logger.warning("Password recovery request failed: %s", e)
+
+
+@router.post("/redefinir-senha", status_code=204)
+def redefinir_senha(body: RedefinirSenhaRequest):
+    if senha_vazada(body.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Esta senha apareceu em vazamentos de dados na internet. Escolha outra senha.",
+        )
+    response = httpx.put(
+        f"{SUPABASE_URL}/auth/v1/user",
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {body.access_token}"},
+        json={"password": body.password},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        logger.warning("Password reset failed: %s %s", response.status_code, response.text)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Link de redefinição inválido ou expirado.",
+        )

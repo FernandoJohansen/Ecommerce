@@ -88,7 +88,13 @@ function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-muted-foreground">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          <Link to="/esqueci-senha" className="text-foreground underline underline-offset-4">
+            Esqueceu a senha?
+          </Link>
+        </p>
+
+        <p className="mt-4 text-center text-sm text-muted-foreground">
           Ainda não tem conta?{" "}
           <Link to="/cadastro" className="text-foreground underline underline-offset-4">
             Criar conta

@@ -14,9 +14,11 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as CarrinhoRouteImport } from './routes/carrinho'
 import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PedidosRouteImport } from './routes/pedidos'
 import { Route as PerfilRouteImport } from './routes/perfil'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as PagamentoPedidoIdRouteImport } from './routes/pagamento.$pedidoId'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
 import { Route as RastreioPedidoIdRouteImport } from './routes/rastreio.$pedidoId'
@@ -46,6 +48,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
   path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
+  id: '/esqueci-senha',
+  path: '/esqueci-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -59,6 +66,11 @@ const PedidosRoute = PedidosRouteImport.update({
 const PerfilRoute = PerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PagamentoPedidoIdRoute = PagamentoPedidoIdRouteImport.update({
@@ -83,9 +95,11 @@ export interface FileRoutesByFullPath {
   '/cadastro': typeof CadastroRoute
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/pedidos': typeof PedidosRoute
   '/perfil': typeof PerfilRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/rastreio/$pedidoId': typeof RastreioPedidoIdRoute
@@ -96,9 +110,11 @@ export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/pedidos': typeof PedidosRoute
   '/perfil': typeof PerfilRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/rastreio/$pedidoId': typeof RastreioPedidoIdRoute
@@ -110,9 +126,11 @@ export interface FileRoutesById {
   '/cadastro': typeof CadastroRoute
   '/carrinho': typeof CarrinhoRoute
   '/checkout': typeof CheckoutRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/pedidos': typeof PedidosRoute
   '/perfil': typeof PerfilRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/rastreio/$pedidoId': typeof RastreioPedidoIdRoute
@@ -125,9 +143,11 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/carrinho'
     | '/checkout'
+    | '/esqueci-senha'
     | '/login'
     | '/pedidos'
     | '/perfil'
+    | '/redefinir-senha'
     | '/pagamento/$pedidoId'
     | '/produto/$slug'
     | '/rastreio/$pedidoId'
@@ -138,9 +158,11 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/carrinho'
     | '/checkout'
+    | '/esqueci-senha'
     | '/login'
     | '/pedidos'
     | '/perfil'
+    | '/redefinir-senha'
     | '/pagamento/$pedidoId'
     | '/produto/$slug'
     | '/rastreio/$pedidoId'
@@ -151,9 +173,11 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/carrinho'
     | '/checkout'
+    | '/esqueci-senha'
     | '/login'
     | '/pedidos'
     | '/perfil'
+    | '/redefinir-senha'
     | '/pagamento/$pedidoId'
     | '/produto/$slug'
     | '/rastreio/$pedidoId'
@@ -165,9 +189,11 @@ export interface RootRouteChildren {
   CadastroRoute: typeof CadastroRoute
   CarrinhoRoute: typeof CarrinhoRoute
   CheckoutRoute: typeof CheckoutRoute
+  EsqueciSenhaRoute: typeof EsqueciSenhaRoute
   LoginRoute: typeof LoginRoute
   PedidosRoute: typeof PedidosRoute
   PerfilRoute: typeof PerfilRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   PagamentoPedidoIdRoute: typeof PagamentoPedidoIdRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
   RastreioPedidoIdRoute: typeof RastreioPedidoIdRoute
@@ -210,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/esqueci-senha': {
+      id: '/esqueci-senha'
+      path: '/esqueci-senha'
+      fullPath: '/esqueci-senha'
+      preLoaderRoute: typeof EsqueciSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -229,6 +262,13 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil'
       preLoaderRoute: typeof PerfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pagamento/$pedidoId': {
@@ -261,9 +301,11 @@ const rootRouteChildren: RootRouteChildren = {
   CadastroRoute: CadastroRoute,
   CarrinhoRoute: CarrinhoRoute,
   CheckoutRoute: CheckoutRoute,
+  EsqueciSenhaRoute: EsqueciSenhaRoute,
   LoginRoute: LoginRoute,
   PedidosRoute: PedidosRoute,
   PerfilRoute: PerfilRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
   PagamentoPedidoIdRoute: PagamentoPedidoIdRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
   RastreioPedidoIdRoute: RastreioPedidoIdRoute,
