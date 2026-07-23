@@ -191,10 +191,20 @@ BAIXA / HARDENING
        de anexar o Bearer; CORS vira allow_credentials=True com origens
        explícitas. Aproveitar para avaliar refresh token (hoje não há).
 
-[ ] 8. Falta de headers de segurança
+[x] 8. Falta de headers de segurança
        Sem HSTS, X-Content-Type-Options, frame-ancestors/CSP, Referrer-Policy.
-       Correção: middleware na API + CSP/HSTS no frontend (Cloudflare).
-       Referrer-Policy no-referrer ajuda com o item 3.
+       CORRIGIDO (2026-07-20):
+       Frontend (frontend/src/server.ts): já tinha CSP completa (com
+       frame-ancestors 'none', object-src 'none', form-action 'self'), HSTS
+       max-age=31536000, X-Content-Type-Options, X-Frame-Options, Referrer-Policy
+       e Permissions-Policy — aplicados em toda resposta em produção (dev mantém
+       o HMR do Vite funcionando).
+       Backend (backend/app/core/securityheaders.py): novo
+       SecurityHeadersMiddleware adicionado como camada mais externa em main.py.
+       Injeta X-Content-Type-Options: nosniff, X-Frame-Options: DENY,
+       Referrer-Policy: no-referrer, HSTS max-age=31536000 e Permissions-Policy
+       em todas as respostas HTTP da API. Não sobrescreve headers já presentes
+       (seguro para override pontual de rota).
 
 [ ] 9. Chave service-role é segredo único de tudo
        Arquivo: backend/app/core/database.py

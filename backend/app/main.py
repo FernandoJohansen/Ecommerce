@@ -17,6 +17,7 @@ from app.core.config import (
 )
 from app.core.bodylimit import BodySizeLimitMiddleware
 from app.core.ratelimit import limiter, rate_limit_handler
+from app.core.securityheaders import SecurityHeadersMiddleware
 from app.services.expiracao_service import expirar_pedidos_nao_pagos
 
 logger = logging.getLogger(__name__)
@@ -76,16 +77,16 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
-# Registrado antes do CORS de propósito: o último add_middleware fica por
-# fora, e o 413 precisa sair com os headers de CORS para o navegador ler.
+# add_middleware empilha de dentro para fora: a última chamada fica na camada
+# mais externa. Ordem desejada: SecurityHeaders > CORS > BodySizeLimit.
+# CORS mais externo que BodySizeLimit garante que o 413 chegue com CORS headers.
 app.add_middleware(BodySizeLimitMiddleware)
-
-app.add_middleware(
-    CORSMiddleware,
+app.add_middleware(CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization", "X-Payment-Token"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(products.router)
