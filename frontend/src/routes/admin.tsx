@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, apiFetch } from "@/lib/api";
 import { isAdmin, isAuthenticated, isStaff, logout, type Role } from "@/lib/auth";
 import {
@@ -373,7 +374,36 @@ function AdminPage() {
         {aba === "usuarios" && admin && (
           <>
             {carregandoUsuarios && (
-              <p className="text-sm text-muted-foreground">Carregando usuários…</p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>E-mail</TableHead>
+                      <TableHead>Cadastro</TableHead>
+                      <TableHead>Papel</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-32 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-48 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-20 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-8 w-36 rounded-none" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
 
             {erroUsuarios != null && (
@@ -442,7 +472,48 @@ function AdminPage() {
             </div>
 
             {carregandoProdutos && (
-              <p className="text-sm text-muted-foreground">Carregando produtos…</p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Tag</TableHead>
+                      <TableHead>Preços</TableHead>
+                      <TableHead>Ordem</TableHead>
+                      <TableHead>Estoque</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-36 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-20 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-28 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-8 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-8 w-32 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-12 rounded-none" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Skeleton className="ml-auto h-8 w-24 rounded-none" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
 
             {erroProdutos != null && (
@@ -510,19 +581,27 @@ function AdminPage() {
 
         {aba === "pedidos" && (
           <>
-            {!isLoading && !error && (
-              <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {metricas.map((metrica) => (
-                  <div key={metrica.label} className="border border-border p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      {metrica.label}
-                    </p>
-                    <p className="serif mt-2 text-2xl">{metrica.valor}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{metrica.nota}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {isLoading
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="border border-border p-4">
+                      <Skeleton className="h-3 w-24 rounded-none" />
+                      <Skeleton className="mt-2 h-7 w-20 rounded-none" />
+                      <Skeleton className="mt-1 h-3 w-16 rounded-none" />
+                    </div>
+                  ))
+                : !error
+                  ? metricas.map((metrica) => (
+                      <div key={metrica.label} className="border border-border p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                          {metrica.label}
+                        </p>
+                        <p className="serif mt-2 text-2xl">{metrica.valor}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{metrica.nota}</p>
+                      </div>
+                    ))
+                  : null}
+            </div>
 
             <div className="mb-8 flex flex-wrap gap-2">
               {filtros.map((f) => (
@@ -540,7 +619,66 @@ function AdminPage() {
               ))}
             </div>
 
-            {isLoading && <p className="text-sm text-muted-foreground">Carregando pedidos…</p>}
+            {isLoading && (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Itens</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Frete</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Entrega</TableHead>
+                      <TableHead>Rastreio</TableHead>
+                      <TableHead>Observações</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-28 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-40 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-16 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-20 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-28 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-36 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-8 w-36 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-20 rounded-none" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-8 w-32 rounded-none" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Skeleton className="ml-auto h-8 w-16 rounded-none" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
             {error && (
               <p className="text-sm text-destructive">Não foi possível carregar os pedidos.</p>
@@ -729,7 +867,42 @@ function AuditoriaTab() {
 
   return (
     <>
-      {isLoading && <p className="text-sm text-muted-foreground">Carregando auditoria…</p>}
+      {isLoading && (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Usuário</TableHead>
+                <TableHead>Ação</TableHead>
+                <TableHead>Alvo</TableHead>
+                <TableHead>Detalhes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-28 rounded-none" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-40 rounded-none" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32 rounded-none" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24 rounded-none" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-48 rounded-none" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {error != null && (
         <p className="text-sm text-destructive">
