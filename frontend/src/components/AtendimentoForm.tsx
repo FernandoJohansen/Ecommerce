@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { type ProdutoApi } from "@/lib/precos";
 import { imagensDoProduto } from "@/lib/produto-imagens";
 import { CompraProduto, type Aroma } from "@/components/CompraProduto";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function AtendimentoForm() {
   const { data: produtos = [], isLoading: loadingProdutos } = useQuery<ProdutoApi[]>({
@@ -40,8 +41,31 @@ export function AtendimentoForm() {
 
   if (loadingProdutos || loadingAromas) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Carregando…
+      <div className="grid gap-8 md:grid-cols-2">
+        <div className="space-y-3">
+          <Skeleton className="h-3 w-20 rounded-none" />
+          <div className="grid gap-2">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-none" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-6">
+          <Skeleton className="h-56 w-full rounded-none" />
+          <div className="space-y-4">
+            <Skeleton className="h-3 w-24 rounded-none" />
+            <Skeleton className="h-10 w-full rounded-none" />
+            <Skeleton className="h-3 w-24 rounded-none" />
+            <div className="flex gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-20 rounded-none" />
+              ))}
+            </div>
+            <Skeleton className="h-3 w-16 rounded-none" />
+            <Skeleton className="h-10 w-24 rounded-none" />
+            <Skeleton className="h-12 w-full rounded-none" />
+          </div>
+        </div>
       </div>
     );
   }
