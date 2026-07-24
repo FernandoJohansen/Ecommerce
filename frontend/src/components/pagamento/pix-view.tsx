@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, apiFetch } from "@/lib/api";
 import { headersPagamento } from "@/lib/pagamento-token";
 import { formatarPreco } from "@/lib/precos";
@@ -60,7 +61,16 @@ export function PixView({ pedidoId }: { pedidoId: string }) {
 
   return (
     <>
-      {criar.isPending && <p className="text-sm text-muted-foreground">Gerando cobrança PIX…</p>}
+      {criar.isPending && (
+        <div className="flex flex-col items-center gap-4">
+          <Skeleton className="h-6 w-40 rounded-none" />
+          <Skeleton className="h-4 w-24 rounded-none" />
+          <Skeleton className="h-56 w-56 rounded-none" />
+          <Skeleton className="h-3 w-52 rounded-none" />
+          <Skeleton className="h-16 w-full rounded-none" />
+          <Skeleton className="h-10 w-full rounded-none" />
+        </div>
+      )}
 
       {indisponivel && (
         <>

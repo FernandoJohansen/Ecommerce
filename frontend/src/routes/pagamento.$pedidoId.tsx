@@ -2,6 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import logo from "@/assets/logo.png";
 import { ApiError, apiFetch } from "@/lib/api";
 import { headersPagamento } from "@/lib/pagamento-token";
@@ -162,14 +163,26 @@ function PagamentoPage() {
                     maxParcelas={metodos.max_parcelas}
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground">Carregando…</p>
+                  <div className="flex flex-col gap-4">
+                    <Skeleton className="h-6 w-48 rounded-none" />
+                    <Skeleton className="h-12 w-full rounded-none" />
+                    <Skeleton className="h-12 w-full rounded-none" />
+                    <Skeleton className="h-12 w-full rounded-none" />
+                    <Skeleton className="h-10 w-full rounded-none" />
+                  </div>
                 ))}
 
               {metodo === "boleto" &&
                 (resumo ? (
                   <BoletoView pedidoId={pedidoId} temDocumento={resumo.tem_documento} />
                 ) : (
-                  <p className="text-sm text-muted-foreground">Carregando…</p>
+                  <div className="flex flex-col gap-4">
+                    <Skeleton className="h-6 w-44 rounded-none" />
+                    <Skeleton className="h-4 w-full rounded-none" />
+                    <Skeleton className="h-4 w-3/4 rounded-none" />
+                    <Skeleton className="h-10 w-full rounded-none" />
+                    <Skeleton className="h-12 w-full rounded-none" />
+                  </div>
                 ))}
             </>
           )}
