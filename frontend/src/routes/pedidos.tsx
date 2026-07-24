@@ -2,6 +2,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import logo from "@/assets/logo.png";
 import { apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
@@ -84,7 +85,40 @@ function PedidosPage() {
           </div>
         </div>
 
-        {isLoading && <p className="text-sm text-muted-foreground">Carregando pedidos…</p>}
+        {isLoading && (
+          <div className="space-y-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="border border-border p-6 sm:p-8">
+                <div className="mb-6 flex items-center justify-between">
+                  <Skeleton className="h-4 w-36 rounded-none" />
+                  <Skeleton className="h-6 w-24 rounded-none" />
+                </div>
+                <div className="mb-6 space-y-2">
+                  <Skeleton className="h-4 w-full rounded-none" />
+                  <Skeleton className="h-4 w-3/4 rounded-none" />
+                  <Skeleton className="h-4 w-5/6 rounded-none" />
+                </div>
+                <div className="space-y-2 border-t border-border pt-4">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-16 rounded-none" />
+                    <Skeleton className="h-4 w-20 rounded-none" />
+                  </div>
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-12 rounded-none" />
+                    <Skeleton className="h-4 w-16 rounded-none" />
+                  </div>
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-10 rounded-none" />
+                    <Skeleton className="h-5 w-24 rounded-none" />
+                  </div>
+                </div>
+                <div className="mt-6 flex gap-2">
+                  <Skeleton className="h-10 flex-1 rounded-none" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {error != null && (
           <p className="text-sm text-destructive">Não foi possível carregar os pedidos.</p>

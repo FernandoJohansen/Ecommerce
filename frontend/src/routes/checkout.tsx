@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -436,7 +437,25 @@ function CheckoutPage() {
           <div className="h-fit border border-border p-8">
             <h2 className="serif mb-6 text-2xl">Resumo</h2>
             {!modoDireto && carregandoCarrinho && (
-              <p className="text-sm text-muted-foreground">Carregando…</p>
+              <div className="space-y-4">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="space-y-1 border-b border-border pb-4">
+                    <Skeleton className="h-5 w-3/4 rounded-none" />
+                    <Skeleton className="h-3 w-1/2 rounded-none" />
+                    <Skeleton className="h-4 w-16 rounded-none" />
+                  </div>
+                ))}
+                <div className="space-y-2 pt-2">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-16 rounded-none" />
+                    <Skeleton className="h-4 w-20 rounded-none" />
+                  </div>
+                  <div className="flex justify-between pt-2">
+                    <Skeleton className="h-4 w-10 rounded-none" />
+                    <Skeleton className="h-6 w-24 rounded-none" />
+                  </div>
+                </div>
+              </div>
             )}
             {itens.length === 0 && !carregandoCarrinho && (
               <div>
