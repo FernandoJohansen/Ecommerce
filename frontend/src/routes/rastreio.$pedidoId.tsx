@@ -2,6 +2,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import logo from "@/assets/logo.png";
 import { ApiError, apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
@@ -114,7 +115,42 @@ function RastreioPage() {
           </Button>
         </div>
 
-        {isLoading && <p className="text-sm text-muted-foreground">Carregando pedido…</p>}
+        {isLoading && (
+          <div className="space-y-6">
+            <div className="border border-border p-6 sm:p-8">
+              <div className="mb-8 flex items-center justify-between">
+                <Skeleton className="h-4 w-36 rounded-none" />
+              </div>
+              <ol className="space-y-0">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <li key={i} className="flex gap-4">
+                    <div className="flex flex-col items-center">
+                      <Skeleton className="size-3 shrink-0 rounded-none" />
+                      {i < 3 && <div className="w-px flex-1 bg-border" style={{ minHeight: 32 }} />}
+                    </div>
+                    <div className={i < 3 ? "pb-8" : ""}>
+                      <Skeleton className="h-3 w-36 rounded-none" />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="border border-border p-6 sm:p-8">
+              <div className="mb-6 space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex justify-between gap-4">
+                    <Skeleton className="h-4 w-2/3 rounded-none" />
+                    <Skeleton className="h-4 w-16 rounded-none" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between border-t border-border pt-4">
+                <Skeleton className="h-4 w-10 rounded-none" />
+                <Skeleton className="h-4 w-24 rounded-none" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {error != null && (
           <p className="text-sm text-destructive">
