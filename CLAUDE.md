@@ -9,20 +9,54 @@ E-commerce landing page for **Carolina Viapiana**, an artisanal aroma/diffuser b
 ## Repository Structure
 
 ```
-viapianastore/
-├── frontend/   # TanStack Start (SSR React) app, deployed to Cloudflare Workers
-└── backend/    # FastAPI app
-    ├── app/
-    │   ├── api/v1/       # Route handlers (products, orders, auth, payments, categories)
-    │   ├── core/         # Config, database client, security
-    │   ├── models/       # Pydantic DB-entity models (what Supabase returns)
-    │   ├── schemas/      # Pydantic API schemas (request/response)
-    │   ├── repositories/ # Raw Supabase queries
-    │   ├── services/     # Business logic (calls repositories)
-    │   ├── dependencies/ # FastAPI dependency functions (e.g. auth)
-    │   └── main.py       # App factory, middleware, router registration
-    ├── schema.sql        # Supabase schema + seed data
-    └── requiriments.txt  # Python dependencies
+Ecommerce/
+├── frontend/                        # TanStack Start (SSR React), Cloudflare Workers
+│   ├── src/
+│   │   ├── assets/                  # Static images (logo, products)
+│   │   ├── components/
+│   │   │   ├── AtendimentoForm.tsx  # Homepage order section
+│   │   │   ├── CompraProduto.tsx    # Shared purchase controls
+│   │   │   ├── Reveal.tsx           # Scroll animation wrapper
+│   │   │   ├── pagamento/           # Boleto, cartão, PIX views
+│   │   │   └── ui/                  # shadcn/ui components (do not modify directly)
+│   │   ├── hooks/
+│   │   ├── lib/                     # api.ts, auth.ts, checkout.ts, utils, etc.
+│   │   ├── routes/                  # File-based routes (see Routing section)
+│   │   ├── styles.css               # Tailwind tokens + design system
+│   │   ├── routeTree.gen.ts         # Auto-generated — never edit manually
+│   │   ├── router.tsx
+│   │   ├── server.ts
+│   │   └── start.ts
+│   ├── vite.config.ts
+│   ├── wrangler.jsonc
+│   └── package.json
+├── backend/                         # FastAPI app
+│   ├── app/
+│   │   ├── api/v1/                  # Route handlers: products, orders, auth, payments,
+│   │   │                            #   categories, cart, frete, audit, users
+│   │   ├── core/                    # Config, database, security, rate limit, LGPD,
+│   │   │                            #   image upload, payment token, roles
+│   │   ├── models/                  # Pydantic DB-entity models (what Supabase returns)
+│   │   ├── schemas/                 # Pydantic API schemas (request/response)
+│   │   ├── repositories/            # Raw Supabase queries
+│   │   ├── services/                # Business logic; clients: MercadoPago, MelhorEnvio, Sicredi
+│   │   ├── dependencies/            # FastAPI dependency functions (e.g. auth)
+│   │   └── main.py                  # App factory, middleware, router registration
+│   ├── migrations/                  # Dated SQL migration files
+│   ├── scripts/                     # Admin helper scripts (e.g. conceder_admin.py)
+│   ├── certs/                       # TLS certs (Sicredi mTLS)
+│   ├── schema.sql                   # Supabase schema + seed data
+│   ├── Dockerfile
+│   └── requiriments.txt             # Python dependencies (note the typo)
+├── docs/
+│   ├── agents/                      # Agent instructions (issue-tracker, triage, domain)
+│   ├── research/                    # Research docs (MelhorEnvio, MercadoPago, Sicredi, NFe)
+│   └── DEPLOY.md
+├── scripts/                         # Repo-level scripts (backup_db.sh)
+├── backups/                         # DB dumps
+├── .github/workflows/               # CI and deploy workflows
+├── docker-compose.yml
+└── CLAUDE.md
 ```
 
 ## Frontend
@@ -59,7 +93,8 @@ Routes live in `src/routes/`. TanStack Router generates `src/routeTree.gen.ts` a
 
 - Products and scents come from the API (`GET /api/produtos`, `GET /api/aromas`) — nothing is hardcoded in the frontend anymore.
 - `src/components/AtendimentoForm.tsx` — Homepage order section; renders the catalog with the shared `CompraProduto` purchase controls.
-- `src/routes/checkout.tsx` → `/pagamento/:pedidoId` — Full checkout flow (address, shipping quote, PIX/card/boleto). Without payment credentials configured, orders fall back to being arranged over WhatsApp.
+- Routes: `index`, `produto.$slug`, `carrinho`, `checkout`, `pagamento.$pedidoId`, `pedidos`, `rastreio.$pedidoId`, `perfil`, `login`, `cadastro`, `esqueci-senha`, `redefinir-senha`, `admin`
+- Full checkout flow (address, shipping quote, PIX/card/boleto) in `checkout.tsx` → `pagamento.$pedidoId.tsx`. Without payment credentials configured, orders fall back to WhatsApp.
 
 ## Backend
 
