@@ -206,12 +206,21 @@ BAIXA / HARDENING
        em todas as respostas HTTP da API. Não sobrescreve headers já presentes
        (seguro para override pontual de rota).
 
-[ ] 9. Chave service-role é segredo único de tudo
+[x] 9. Chave service-role é segredo único de tudo
        Arquivo: backend/app/core/database.py
        SUPABASE_KEY (service role) ignora RLS e lista usuários. Vazou = banco
        e contas comprometidos. Está no .gitignore (só .env.example versionado).
        Correção: nunca logar, rotacionar se o servidor/repo já foi compartilhado,
        .env com chmod 600.
+       VERIFICADO (2026-07-28): varredura completa do código confirma que
+       SUPABASE_KEY nunca aparece em nenhum logger.warning / logger.exception /
+       logger.info / print — os handlers de exceção só registram status_code e
+       response.text (sem headers de request). .env.example contém apenas
+       placeholders. Startup check (config.py:114) recusa chave em branco.
+       AÇÕES OPERACIONAIS (fora do código, responsabilidade do sysadmin):
+         • chmod 600 .env no servidor antes do próximo deploy.
+         • Rotacionar a chave se o repositório ou o servidor foram compartilhados
+           com terceiros sem controle de acesso explícito.
 
 [x] 10. Dumps de backup contêm CPF/CNPJ em claro + PII
         Arquivo: scripts/backup_db.sh
