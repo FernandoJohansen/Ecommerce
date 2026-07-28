@@ -6,7 +6,7 @@ import logo from "@/assets/logo.png";
 import { apiFetch } from "@/lib/api";
 import { formatarPreco, menorPreco, type ProdutoApi } from "@/lib/precos";
 import { imagensDoProduto } from "@/lib/produto-imagens";
-import { slugify } from "@/lib/utils";
+import { slugify, supabaseSrcSet } from "@/lib/utils";
 import { CompraProduto, type Aroma } from "@/components/CompraProduto";
 
 export const Route = createFileRoute("/produto/$slug")({
@@ -87,6 +87,8 @@ function ProdutoPage() {
                   <img
                     key={fotoAtual}
                     src={fotoAtual}
+                    srcSet={supabaseSrcSet(fotoAtual)}
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     alt={produto.nome}
                     width={800}
                     height={1000}
@@ -116,6 +118,8 @@ function ProdutoPage() {
                     >
                       <img
                         src={foto}
+                        srcSet={supabaseSrcSet(foto, [128, 256])}
+                        sizes="128px"
                         alt=""
                         width={128}
                         height={128}

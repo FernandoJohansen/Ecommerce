@@ -6,8 +6,10 @@ import { isAuthenticated, isStaff } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { formatarPreco, menorPreco, type ProdutoApi } from "@/lib/precos";
 import hero from "@/assets/products/difusor_vidro3.jpeg";
+import heroWebp from "@/assets/products/difusor_vidro3.webp";
+import heroAvif from "@/assets/products/difusor_vidro3.avif";
 import { imagensDoProduto } from "@/lib/produto-imagens";
-import { normalizarBusca, slugify } from "@/lib/utils";
+import { normalizarBusca, slugify, supabaseSrcSet } from "@/lib/utils";
 import { AtendimentoForm } from "@/components/AtendimentoForm";
 import { Reveal } from "@/components/Reveal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -170,13 +172,18 @@ function Hero() {
       id="topo"
       className="relative min-h-screen w-full overflow-hidden bg-foreground text-background"
     >
-      <img
-        src={hero}
-        alt="Difusor de aromas Carolina Viapiana"
-        width={1280}
-        height={1600}
-        className="absolute inset-0 h-full w-full object-cover opacity-60"
-      />
+      <picture>
+        <source srcSet={heroAvif} type="image/avif" />
+        <source srcSet={heroWebp} type="image/webp" />
+        <img
+          src={hero}
+          alt="Difusor de aromas Carolina Viapiana"
+          width={1280}
+          height={1600}
+          fetchPriority="high"
+          className="absolute inset-0 h-full w-full object-cover opacity-60"
+        />
+      </picture>
       <div className="absolute inset-0 bg-gradient-to-b from-foreground/70 via-foreground/30 to-foreground" />
       <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col justify-end px-6 pb-24 pt-40 md:px-12">
         <span
@@ -343,6 +350,8 @@ function Produtos() {
                           {fotos[0] ? (
                             <img
                               src={fotos[0]}
+                              srcSet={supabaseSrcSet(fotos[0])}
+                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
                               alt={p.nome}
                               width={800}
                               height={1000}
@@ -359,6 +368,8 @@ function Produtos() {
                           {fotos[1] && (
                             <img
                               src={fotos[1]}
+                              srcSet={supabaseSrcSet(fotos[1])}
+                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
                               alt=""
                               width={800}
                               height={1000}

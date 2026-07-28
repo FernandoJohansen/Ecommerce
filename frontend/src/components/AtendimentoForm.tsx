@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { apiFetch } from "@/lib/api";
 import { type ProdutoApi } from "@/lib/precos";
 import { imagensDoProduto } from "@/lib/produto-imagens";
+import { supabaseSrcSet } from "@/lib/utils";
 import { CompraProduto, type Aroma } from "@/components/CompraProduto";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -106,6 +107,8 @@ export function AtendimentoForm() {
               <img
                 key={fotoAtual}
                 src={fotoAtual}
+                srcSet={supabaseSrcSet(fotoAtual)}
+                sizes="(max-width: 640px) 100vw, 400px"
                 alt={effectiveProduto.nome}
                 width={800}
                 height={1000}
@@ -129,6 +132,8 @@ export function AtendimentoForm() {
                   >
                     <img
                       src={foto}
+                      srcSet={supabaseSrcSet(foto, [112, 224])}
+                      sizes="112px"
                       alt=""
                       width={112}
                       height={112}
