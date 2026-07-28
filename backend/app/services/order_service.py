@@ -2,6 +2,9 @@ from fastapi import HTTPException
 
 from app.core.config import MELHOR_ENVIO_ENABLED
 from app.core.lgpd import mascarar_documento
+from app.core.payment_token import token_pagamento_valido
+from app.core.roles import ROLE_STAFF, role_at_least
+from app.dependencies.auth import resolve_role
 from app.repositories.order_repository import (
     delete_pedido,
     get_all_pedidos,
@@ -12,15 +15,15 @@ from app.repositories.order_repository import (
     insert_pedido_itens,
     update_pedido,
 )
-from app.schemas.order import PedidoCreate, PedidoUpdate
+from app.schemas.order import TRANSICOES_PERMITIDAS, PedidoCreate, PedidoUpdate
 from app.services.frete_service import frete_do_pedido
 from app.services.product_service import (
     REFIL_PRODUTO,
-    baixar_estoque,
     list_aromas,
     mapa_produtos,
     preco_unitario,
-    repor_estoque,
+    repor_estoque_pedido,
+    reservar_estoque_pedido,
 )
 
 
@@ -110,23 +113,13 @@ def criar_pedido(
         frete_prazo_dias = opcao["prazo_dias"]
     total += frete_centavos
 
-    # Reserve stock for the whole order before writing anything; if one
-    # product falls short, put back what was already taken and abort.
+    # Atomically reserve stock for all items in a single DB transaction;
+    # if any product is short the function raises and no stock is touched.
     por_produto = quantidades_por_produto(itens)
-
-    baixados: list[tuple[str, int]] = []
+    reservar_estoque_pedido(por_produto)
 
     def _desfazer_estoque() -> None:
-        for produto_nome, quantidade in baixados:
-            repor_estoque(produto_nome, quantidade)
-
-    try:
-        for produto_nome, quantidade in por_produto.items():
-            baixar_estoque(produto_nome, quantidade)
-            baixados.append((produto_nome, quantidade))
-    except HTTPException:
-        _desfazer_estoque()
-        raise
+        repor_estoque_pedido(por_produto)
 
     try:
         pedido = insert_pedido(
@@ -185,11 +178,31 @@ def get_pedido_do_usuario(pedido_id: str, user_id: str) -> dict:
 def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
     data = pedido.model_dump(exclude_unset=True)
     if "codigo_rastreio" in data:
-        # "" limpa o código; espaços acidentais não viram código válido
         data["codigo_rastreio"] = (data["codigo_rastreio"] or "").strip() or None
+
+    _restaurar_estoque: dict[str, int] | None = None
+    if "status" in data:
+        atual = get_pedido_by_id(pedido_id)
+        if not atual:
+            raise HTTPException(status_code=404, detail="Pedido não encontrado")
+        status_atual = atual.get("status", "novo")
+        permitidos = TRANSICOES_PERMITIDAS.get(status_atual, set())
+        if data["status"] not in permitidos:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Transição inválida: {status_atual} → {data['status']}. "
+                    f"Transições permitidas: {sorted(permitidos) or 'nenhuma'}."
+                ),
+            )
+        if data["status"] in {"cancelado", "expirado"} and status_atual in {"novo", "em_andamento"}:
+            _restaurar_estoque = quantidades_por_produto(atual.get("itens") or [])
+
     result = update_pedido(pedido_id, data)
     if not result:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    if _restaurar_estoque:
+        repor_estoque_pedido(_restaurar_estoque)
     return _com_documento_mascarado(result)
 
 
@@ -212,3 +225,25 @@ def remove_pedido(pedido_id: str) -> dict:
     if not result:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
     return _com_documento_mascarado(result)
+
+
+def get_pedido_rastreio(pedido_id: str, user, token_pagamento: str | None) -> dict:
+    """Rastreio público: autoriza pelo token de pagamento (convidado), pelo
+    Bearer do dono ou por role staff. Responde 404 para qualquer acesso não
+    autorizado, igual à de pedido inexistente (não confirma que o UUID existe)."""
+    pedido = get_pedido_by_id(pedido_id)
+    if not pedido:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+    autorizado = False
+    if token_pagamento and token_pagamento_valido(token_pagamento, pedido_id):
+        autorizado = True
+    elif user is not None:
+        if pedido.get("user_id") == user.id:
+            autorizado = True
+        elif role_at_least(resolve_role(user.id, user.email), ROLE_STAFF):
+            autorizado = True
+
+    if not autorizado:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    return _com_documento_mascarado(pedido)

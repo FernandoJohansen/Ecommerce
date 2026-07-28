@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 
 from app.core.payment_token import gerar_token_pagamento
 from app.core.ratelimit import limiter
@@ -8,6 +8,7 @@ from app.services.audit_service import registrar_auditoria
 from app.services.order_service import (
     create_pedido,
     get_pedido_do_usuario,
+    get_pedido_rastreio,
     list_pedidos,
     list_pedidos_do_usuario,
     remove_pedido,
@@ -33,15 +34,28 @@ def get_pedidos(_user=Depends(get_staff_user)):
     return list_pedidos()
 
 
+@router.get("/pedidos/rastreio/{pedido_id}", response_model=PedidoResponse)
+def get_pedido_rastreio_endpoint(
+    pedido_id: str, request: Request, response: Response, user=Depends(get_optional_user)
+):
+    """Rastreio público: acessível pelo dono logado, staff ou titular do
+    token de pagamento devolvido na criação do pedido (convidado)."""
+    response.headers["Cache-Control"] = "no-store"
+    token = request.headers.get("x-payment-token")
+    return get_pedido_rastreio(pedido_id, user, token)
+
+
 @router.get("/pedidos/meus", response_model=list[PedidoResponse])
-def get_meus_pedidos(user=Depends(get_current_user)):
+def get_meus_pedidos(response: Response, user=Depends(get_current_user)):
     """Pedidos do cliente logado (pedidos de convidado não têm user_id)."""
+    response.headers["Cache-Control"] = "no-store"
     return list_pedidos_do_usuario(user.id)
 
 
 @router.get("/pedidos/meus/{pedido_id}", response_model=PedidoResponse)
-def get_meu_pedido(pedido_id: str, user=Depends(get_current_user)):
+def get_meu_pedido(pedido_id: str, response: Response, user=Depends(get_current_user)):
     """Um pedido do cliente logado (página de acompanhamento /rastreio)."""
+    response.headers["Cache-Control"] = "no-store"
     return get_pedido_do_usuario(pedido_id, user.id)
 
 

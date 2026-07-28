@@ -8,6 +8,7 @@ import { ApiError, apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { formatarPreco } from "@/lib/precos";
 import { statusPedidoLabel } from "@/lib/pedido-status";
+import { headersPagamento } from "@/lib/pagamento-token";
 
 export const Route = createFileRoute("/rastreio/$pedidoId")({
   component: RastreioPage,
@@ -75,12 +76,14 @@ function RastreioPage() {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    const tokenHeaders = headersPagamento(pedidoId);
+    const hasToken = Object.keys(tokenHeaders).length > 0;
+    if (!isAuthenticated() && !hasToken) {
       navigate({ to: "/login" });
       return;
     }
     setChecked(true);
-  }, [navigate]);
+  }, [navigate, pedidoId]);
 
   const {
     data: pedido,
@@ -88,7 +91,8 @@ function RastreioPage() {
     error,
   } = useQuery<Pedido>({
     queryKey: ["meu-pedido", pedidoId],
-    queryFn: () => apiFetch(`/pedidos/meus/${pedidoId}`),
+    queryFn: () =>
+      apiFetch(`/pedidos/rastreio/${pedidoId}`, { headers: headersPagamento(pedidoId) }),
     enabled: checked,
     // Pedido a caminho pode mudar de status a qualquer momento
     refetchInterval: (query) =>
