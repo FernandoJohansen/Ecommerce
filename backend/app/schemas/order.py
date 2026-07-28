@@ -80,6 +80,9 @@ class DadosCliente(BaseModel):
     # Exigido pelo Mercado Pago para boleto e antifraude de cartão.
     # CPF (11 dígitos) ou CNPJ (14 dígitos, compra como pessoa jurídica).
     cpf_cnpj: str = Field(max_length=25)
+    # Opcional: usado para envio de e-mails transacionais (Brevo). Ausente em
+    # pedidos antigos e em convidados que não informaram e-mail.
+    email_cliente: str | None = Field(default=None, max_length=254)
     endereco: EnderecoEntrega
     observacoes: str | None = Field(default=None, max_length=500)
     # Opção de frete escolhida no checkout; recotada no servidor. None quando
@@ -116,12 +119,39 @@ class DadosCliente(BaseModel):
             raise ValueError("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos)")
         return digitos
 
+    @field_validator("email_cliente")
+    @classmethod
+    def valida_email(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip().lower()
+        local, _, domain = v.partition("@")
+        if not local or not domain or "." not in domain:
+            raise ValueError("E-mail inválido")
+        return v
+
 
 class PedidoCreate(DadosCliente):
     itens: list[PedidoItemCreate] = Field(min_length=1, max_length=50)
 
 
-STATUS_PEDIDO = {"novo", "em_andamento", "pago", "enviado", "concluido", "cancelado"}
+STATUS_PEDIDO = {
+    "novo", "em_andamento", "pago", "enviado",
+    "concluido", "cancelado", "expirado", "reembolsado",
+}
+
+# Allowed manual transitions for staff PATCH. Terminal states (concluido,
+# cancelado, expirado, reembolsado) cannot be reversed.
+TRANSICOES_PERMITIDAS: dict[str, set[str]] = {
+    "novo":         {"em_andamento", "pago", "cancelado", "expirado"},
+    "em_andamento": {"pago", "cancelado", "expirado"},
+    "pago":         {"enviado", "reembolsado"},
+    "enviado":      {"concluido", "reembolsado"},
+    "concluido":    set(),
+    "cancelado":    set(),
+    "expirado":     set(),
+    "reembolsado":  set(),
+}
 
 
 class PedidoUpdate(BaseModel):

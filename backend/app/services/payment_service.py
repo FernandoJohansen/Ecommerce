@@ -1,3 +1,6 @@
+import hashlib
+import logging
+import time
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -18,16 +21,21 @@ from app.core.roles import ROLE_STAFF, role_at_least
 from app.dependencies.auth import resolve_role
 from app.repositories.order_repository import get_pedido_by_id, update_pedido
 from app.repositories.payment_repository import (
+    count_pagamentos_recusados_ip,
     get_pagamento_by_mp_id,
     get_pagamento_by_txid,
     get_pagamentos_by_pedido,
     get_pagamentos_by_pedido_metodo,
+    get_pagamentos_pendentes_antigos,
     insert_pagamento,
     update_pagamento,
     update_pagamento_by_id,
 )
+from app.repositories.webhook_repository import webhook_evento_novo
 from app.schemas.payment import PagamentoBoletoCreate, PagamentoCartaoCreate
 from app.services import mercadopago_client, sicredi_client
+
+logger = logging.getLogger(__name__)
 
 # Prazo de validade da cobrança PIX (calendario.expiracao, em segundos)
 EXPIRACAO_SEGUNDOS = 86400
@@ -51,6 +59,31 @@ MENSAGENS_RECUSA = {
     "cc_rejected_max_attempts": "Muitas tentativas. Aguarde alguns minutos.",
 }
 MENSAGEM_RECUSA_PADRAO = "Pagamento recusado. Tente outro cartão ou método."
+
+
+_VELOCITY_LIMIT = 5
+_VELOCITY_JANELA_SEGUNDOS = 3600
+
+
+def _idempotency_key(pedido_id: str, metodo: str) -> str:
+    """Deterministic key stable for a 5-minute window; retries in that window
+    reuse the same key so MercadoPago deduplicates instead of double-charging."""
+    window = int(time.time()) // 300
+    raw = f"{pedido_id}:{metodo}:{window}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
+def _checar_velocity(ip_origem: str, pedido_id: str) -> None:
+    count = count_pagamentos_recusados_ip(ip_origem, _VELOCITY_JANELA_SEGUNDOS)
+    if count >= _VELOCITY_LIMIT:
+        logger.warning(
+            "Velocity check: %d rejected payments from IP %s in last hour (pedido %s)",
+            count, ip_origem, pedido_id,
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas tentativas recusadas. Aguarde antes de tentar novamente.",
+        )
 
 
 def get_pix_info() -> dict:
@@ -148,6 +181,10 @@ def criar_cobranca_pix(pedido_id: str, user, token_pagamento: str | None) -> dic
     )
     if not row:
         raise HTTPException(status_code=500, detail="Falha ao registrar pagamento")
+    logger.info(
+        "payment.initiated method=pix pedido_id=%s txid=%s valor_centavos=%d",
+        pedido_id, txid, pedido["total_centavos"],
+    )
     return _resposta(row)
 
 
@@ -155,6 +192,9 @@ def _marcar_pedido_pago(pedido_id: str) -> None:
     pedido = get_pedido_by_id(pedido_id)
     if pedido and pedido["status"] in ("novo", "em_andamento"):
         update_pedido(pedido_id, {"status": "pago"})
+        logger.info("order.paid pedido_id=%s", pedido_id)
+        from app.services import email_service
+        email_service.enviar_pagamento_confirmado(pedido)
 
 
 def _aplicar_status_cob(row: dict, cob: dict) -> dict:
@@ -193,10 +233,16 @@ def consultar_pagamento(txid: str, user, token_pagamento: str | None) -> dict:
     return _resposta(row)
 
 
-def processar_webhook_pix(payload: dict) -> dict:
+def processar_webhook_pix(payload: dict, event_id: str | None = None) -> dict:
     """Notificação de PIX recebido. O corpo do POST não é confiável por si só:
     para cada txid notificado, o status é reconferido direto no Sicredi antes
-    de marcar qualquer coisa como paga (também torna o webhook idempotente)."""
+    de marcar qualquer coisa como paga."""
+    if event_id:
+        if not webhook_evento_novo(event_id, "sicredi"):
+            logger.info("webhook.duplicate provider=sicredi event_id=%s", event_id)
+            return {"processados": 0}
+        logger.info("webhook.received provider=sicredi event_id=%s", event_id)
+
     processados = 0
     for pix in payload.get("pix") or []:
         txid = pix.get("txid")
@@ -297,9 +343,8 @@ def _resposta_mp(row: dict) -> dict:
 
 
 def _aplicar_status_mp(row: dict, mp: dict) -> dict:
-    """Sincroniza a linha local com o pagamento no Mercado Pago. Estorno e
-    chargeback só atualizam o pagamento — o pedido não é revertido
-    automaticamente (tratamento manual)."""
+    """Sincroniza a linha local com o pagamento no Mercado Pago.
+    Refunds/chargebacks also flip the order to `reembolsado`."""
     status = mp.get("status")
     if not status or status == row["status"]:
         return row
@@ -312,6 +357,14 @@ def _aplicar_status_mp(row: dict, mp: dict) -> dict:
 
     if status == "approved":
         _marcar_pedido_pago(row["pedido_id"])
+    elif status in ("refunded", "charged_back"):
+        pedido = get_pedido_by_id(row["pedido_id"])
+        if pedido and pedido["status"] not in ("reembolsado", "cancelado"):
+            update_pedido(row["pedido_id"], {"status": "reembolsado"})
+            logger.info(
+                "order.refunded pedido_id=%s mp_payment_id=%s status=%s",
+                row["pedido_id"], row.get("mp_payment_id"), status,
+            )
     return atualizado
 
 
@@ -327,7 +380,7 @@ def _identificacao_mp(pedido: dict) -> dict:
 
 
 def criar_pagamento_cartao(
-    dados: PagamentoCartaoCreate, user, token_pagamento: str | None
+    dados: PagamentoCartaoCreate, user, token_pagamento: str | None, ip_origem: str = ""
 ) -> dict:
     """Cada submit do Brick é uma tentativa nova (token novo, pagamento novo no
     MP) — recusas ficam no histórico e nunca bloqueiam nova tentativa."""
@@ -341,6 +394,12 @@ def criar_pagamento_cartao(
             status_code=422,
             detail="Pedido sem CPF/CNPJ cadastrado; finalize pelo PIX ou refaça o pedido.",
         )
+    if ip_origem:
+        _checar_velocity(ip_origem, dados.pedido_id)
+
+    # Stable within a 5-minute window so network-timeout retries reuse the same
+    # key instead of generating a new one and double-charging.
+    idempotency_key = _idempotency_key(dados.pedido_id, "cartao")
 
     payload = {
         # Valor sempre do servidor; o amount exibido no Brick é ignorado
@@ -360,7 +419,11 @@ def criar_pagamento_cartao(
     if MERCADO_PAGO_WEBHOOK_URL:
         payload["notification_url"] = MERCADO_PAGO_WEBHOOK_URL
 
-    mp = mercadopago_client.criar_pagamento(payload, idempotency_key=uuid4().hex)
+    logger.info(
+        "payment.initiated method=cartao pedido_id=%s valor_centavos=%d",
+        dados.pedido_id, pedido["total_centavos"],
+    )
+    mp = mercadopago_client.criar_pagamento(payload, idempotency_key=idempotency_key)
 
     row = insert_pagamento(
         {
@@ -374,6 +437,7 @@ def criar_pagamento_cartao(
                 "parcelas": mp.get("installments"),
                 "bandeira": mp.get("payment_method_id"),
                 "email_pagador": dados.payer_email,
+                "ip_origem": ip_origem,
             },
         }
     )
@@ -383,6 +447,12 @@ def criar_pagamento_cartao(
         row = {**row, "pago_em": datetime.now(timezone.utc).isoformat()}
         update_pagamento_by_id(row["id"], {"pago_em": row["pago_em"]})
         _marcar_pedido_pago(dados.pedido_id)
+        logger.info("payment.succeeded method=cartao pedido_id=%s", dados.pedido_id)
+    elif row["status"] == "rejected":
+        logger.warning(
+            "payment.failed method=cartao pedido_id=%s status_detail=%s",
+            dados.pedido_id, (row.get("detalhes") or {}).get("status_detail"),
+        )
     return _resposta_mp(row)
 
 
@@ -399,7 +469,7 @@ def _boleto_vigente(row: dict) -> bool:
 
 
 def criar_pagamento_boleto(
-    dados: PagamentoBoletoCreate, user, token_pagamento: str | None
+    dados: PagamentoBoletoCreate, user, token_pagamento: str | None, ip_origem: str = ""
 ) -> dict:
     exigir_acesso_pedido(dados.pedido_id, user, token_pagamento)
     mercadopago_client.exigir_mercado_pago()
@@ -417,6 +487,9 @@ def criar_pagamento_boleto(
     for existente in get_pagamentos_by_pedido_metodo(dados.pedido_id, "boleto"):
         if _boleto_vigente(existente):
             return _resposta_mp(existente)
+
+    if ip_origem:
+        _checar_velocity(ip_origem, dados.pedido_id)
 
     partes_nome = (pedido.get("nome_cliente") or "").split()
     primeiro_nome = partes_nome[0] if partes_nome else ""
@@ -449,7 +522,15 @@ def criar_pagamento_boleto(
     if MERCADO_PAGO_WEBHOOK_URL:
         payload["notification_url"] = MERCADO_PAGO_WEBHOOK_URL
 
-    mp = mercadopago_client.criar_pagamento(payload, idempotency_key=uuid4().hex)
+    # Stable within a 5-minute window so network-timeout retries reuse the same
+    # key instead of generating a new one and double-charging.
+    idempotency_key = _idempotency_key(dados.pedido_id, "boleto")
+
+    logger.info(
+        "payment.initiated method=boleto pedido_id=%s valor_centavos=%d",
+        dados.pedido_id, pedido["total_centavos"],
+    )
+    mp = mercadopago_client.criar_pagamento(payload, idempotency_key=idempotency_key)
 
     transacao = mp.get("transaction_details") or {}
     codigo_barras = mp.get("barcode") or {}
@@ -466,11 +547,13 @@ def criar_pagamento_boleto(
                 "boleto_linha_digitavel": codigo_barras.get("content"),
                 "boleto_vencimento": vencimento.isoformat(),
                 "email_pagador": dados.email,
+                "ip_origem": ip_origem,
             },
         }
     )
     if not row:
         raise HTTPException(status_code=500, detail="Falha ao registrar pagamento")
+    logger.info("payment.initiated method=boleto pedido_id=%s mp_payment_id=%s", dados.pedido_id, row.get("mp_payment_id"))
     return _resposta_mp(row)
 
 
@@ -514,10 +597,15 @@ def bloqueio_para_expiracao(pedido_id: str) -> str | None:
     return None
 
 
-def processar_webhook_mercadopago(payment_id: str) -> dict:
+def processar_webhook_mercadopago(payment_id: str, event_id: str | None = None) -> dict:
     """Notificação do Mercado Pago. O corpo/query nunca é confiado por si só:
-    o status é reconferido direto no MP antes de marcar qualquer coisa como
-    paga (também torna o webhook idempotente)."""
+    o status é reconferido direto no MP antes de marcar qualquer coisa como paga."""
+    if event_id:
+        if not webhook_evento_novo(event_id, "mercadopago"):
+            logger.info("webhook.duplicate provider=mercadopago event_id=%s", event_id)
+            return {"processados": 0}
+        logger.info("webhook.received provider=mercadopago event_id=%s payment_id=%s", event_id, payment_id)
+
     row = get_pagamento_by_mp_id(payment_id)
     if not row or _situacao(row) != "pendente":
         return {"processados": 0}
@@ -525,5 +613,43 @@ def processar_webhook_mercadopago(payment_id: str) -> dict:
         mp = mercadopago_client.consultar_pagamento(payment_id)
     except HTTPException:
         return {"processados": 0}
-    _aplicar_status_mp(row, mp)
+    atualizado = _aplicar_status_mp(row, mp)
+    situacao = _situacao(atualizado)
+    if situacao == "aprovado":
+        logger.info("payment.succeeded method=%s pedido_id=%s mp_payment_id=%s", row.get("metodo"), row["pedido_id"], payment_id)
+    elif situacao == "recusado":
+        logger.warning("payment.failed method=%s pedido_id=%s mp_payment_id=%s", row.get("metodo"), row["pedido_id"], payment_id)
     return {"processados": 1}
+
+
+def sincronizar_pagamentos_pendentes() -> int:
+    """Fallback poll: reconcile pending PIX and MP payments that may have missed
+    their webhook. Called from the background loop in main.py."""
+    sincronizados = 0
+
+    for row in get_pagamentos_pendentes_antigos("pix", minutos=5):
+        txid = row.get("txid")
+        if not txid:
+            continue
+        try:
+            cob = sicredi_client.consultar_cob(txid)
+            _aplicar_status_cob(row, cob)
+            sincronizados += 1
+        except HTTPException:
+            pass
+
+    for metodo in ("cartao", "boleto"):
+        for row in get_pagamentos_pendentes_antigos(metodo, minutos=10):
+            mp_id = row.get("mp_payment_id")
+            if not mp_id:
+                continue
+            try:
+                mp = mercadopago_client.consultar_pagamento(mp_id)
+                _aplicar_status_mp(row, mp)
+                sincronizados += 1
+            except HTTPException:
+                pass
+
+    if sincronizados:
+        logger.info("Fallback poll sincronizou %d pagamento(s) pendente(s)", sincronizados)
+    return sincronizados

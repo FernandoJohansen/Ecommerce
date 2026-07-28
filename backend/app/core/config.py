@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -50,7 +51,7 @@ MERCADO_PAGO_ENABLED: bool = bool(MERCADO_PAGO_ACCESS_TOKEN)
 # Mercado Pago RECUSAR notificações quando o secret de assinatura não estiver
 # configurado (em vez de aceitar sem validar). Mantido false por padrão para
 # não quebrar o setup inicial/sandbox antes de o secret ser gerado no painel.
-WEBHOOK_REQUIRE_SIGNATURE: bool = os.getenv("WEBHOOK_REQUIRE_SIGNATURE", "false").strip().lower() in (
+WEBHOOK_REQUIRE_SIGNATURE: bool = os.getenv("WEBHOOK_REQUIRE_SIGNATURE", "true").strip().lower() in (
     "1",
     "true",
     "yes",
@@ -76,7 +77,7 @@ MELHOR_ENVIO_ENABLED: bool = bool(MELHOR_ENVIO_TOKEN and FRETE_CEP_ORIGEM)
 # Pedido 'novo' sem pagamento aprovado é cancelado (com estoque devolvido)
 # depois deste prazo. A varredura só roda com alguma integração de pagamento
 # ativa — sem PSP, os pedidos são negociados manualmente e não expiram.
-PEDIDO_EXPIRA_HORAS: int = int(os.getenv("PEDIDO_EXPIRA_HORAS", "24"))
+PEDIDO_EXPIRA_HORAS: int = int(os.getenv("PEDIDO_EXPIRA_HORAS", "1"))
 
 # ── Token de pagamento (anti-IDOR nos endpoints públicos de pagamento) ───────
 # Segredo do HMAC dos tokens devolvidos na criação do pedido. Sem valor,
@@ -110,5 +111,20 @@ ENABLE_API_DOCS: bool = os.getenv("ENABLE_API_DOCS", "false").strip().lower() in
     "on",
 )
 
+# ── E-mail transacional (Brevo) ──────────────────────────────────────────────
+# Sem API key ou remetente configurados, o serviço de e-mail fica desligado e
+# a aplicação segue normalmente — nenhuma chamada HTTP é feita.
+BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
+EMAIL_FROM: str = os.getenv("EMAIL_FROM", "")
+EMAIL_FROM_NAME: str = os.getenv("EMAIL_FROM_NAME", "Carolina Viapiana")
+BREVO_ENABLED: bool = bool(BREVO_API_KEY and EMAIL_FROM)
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set in .env")
+
+_env = os.getenv("ENVIRONMENT", "development").strip().lower()
+if _env == "production" and "*" in ALLOWED_ORIGINS:
+    raise RuntimeError(
+        "ALLOWED_ORIGINS must not contain '*' in production. "
+        "Set it to the explicit frontend origin (e.g. https://carolinaviapiana.com.br)."
+    )

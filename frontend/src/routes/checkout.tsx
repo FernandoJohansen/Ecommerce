@@ -201,8 +201,10 @@ function CheckoutPage() {
   const temItemSemPreco = !carregandoPrecos && itens.some((i) => i.subtotal_centavos === null);
 
   const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
+
   const [cep, setCep] = useState("");
   const [freteId, setFreteId] = useState<number | null>(null);
   const [rua, setRua] = useState("");
@@ -213,6 +215,16 @@ function CheckoutPage() {
   const [estado, setEstado] = useState("PR");
   const [obs, setObs] = useState("");
   const [erros, setErros] = useState<Record<string, string>>({});
+
+  // Pre-fill email from auth profile for logged-in users
+  const { data: perfil } = useQuery<{ email: string }>({
+    queryKey: ["perfil-email"],
+    queryFn: () => apiFetch("/auth/me"),
+    enabled: pronto && logado,
+  });
+  useEffect(() => {
+    if (perfil?.email && !email) setEmail(perfil.email);
+  }, [perfil, email]);
 
   // Cotação de frete: dispara quando o CEP fica completo e os itens têm
   // preço. 503 = integração desligada → o pedido segue sem frete (entrega
@@ -263,6 +275,7 @@ function CheckoutPage() {
   const validar = () => {
     const novos: Record<string, string> = {};
     if (nome.trim().length < 2) novos.nome = "Informe o nome completo";
+    if (!email.trim() || !email.includes("@")) novos.email = "Informe um e-mail válido";
     const telDigitos = telefone.replace(/\D/g, "");
     if (telDigitos.length < 10 || telDigitos.length > 11) novos.telefone = "Informe DDD + número";
     if (!validarCpfCnpj(cpfCnpj.replace(/\D/g, ""))) novos.cpf_cnpj = "CPF/CNPJ inválido";
@@ -278,6 +291,7 @@ function CheckoutPage() {
 
   const dadosCliente = () => ({
     nome_cliente: nome.trim(),
+    email_cliente: email.trim().toLowerCase() || null,
     telefone: telefone.replace(/\D/g, ""),
     cpf_cnpj: cpfCnpj.replace(/\D/g, ""),
     endereco: {
@@ -336,13 +350,15 @@ function CheckoutPage() {
     valor: string,
     onChange: (v: string) => void,
     chave: string,
-    props?: { placeholder?: string; className?: string },
+    props?: { placeholder?: string; className?: string; type?: string; autoComplete?: string },
   ) => (
     <div className={`space-y-2 ${props?.className ?? ""}`}>
       <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</Label>
       <Input
         value={valor}
         placeholder={props?.placeholder}
+        type={props?.type}
+        autoComplete={props?.autoComplete}
         onChange={(e) => onChange(e.target.value)}
         className="rounded-none border-0 border-b border-foreground bg-transparent px-0"
       />
@@ -384,6 +400,11 @@ function CheckoutPage() {
                 )}
               </div>
               <div className="grid gap-6 sm:grid-cols-2">
+                {campo("E-mail", email, setEmail, "email", {
+                  type: "email",
+                  placeholder: "seu@email.com",
+                  autoComplete: "email",
+                })}
                 {campo("CPF ou CNPJ", cpfCnpj, (v) => setCpfCnpj(formatarCpfCnpj(v)), "cpf_cnpj", {
                   placeholder: "000.000.000-00",
                 })}

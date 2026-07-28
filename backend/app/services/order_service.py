@@ -41,6 +41,7 @@ def create_pedido(pedido: PedidoCreate, user_id: str | None = None) -> dict:
         nome_cliente=pedido.nome_cliente,
         telefone=pedido.telefone,
         cpf_cnpj=pedido.cpf_cnpj,
+        email_cliente=pedido.email_cliente,
         endereco=pedido.endereco.model_dump(),
         observacoes=pedido.observacoes,
         user_id=user_id,
@@ -71,6 +72,7 @@ def criar_pedido(
     observacoes: str | None,
     user_id: str | None = None,
     frete_servico_id: int | None = None,
+    email_cliente: str | None = None,
 ) -> dict:
     """Valida itens, calcula preços/total no servidor, reserva estoque e grava
     o pedido (cabeçalho + itens). Usado pelo POST /pedidos e pelo checkout do
@@ -128,6 +130,7 @@ def criar_pedido(
                 "nome_cliente": nome_cliente,
                 "telefone": telefone,
                 "cpf_cnpj": cpf_cnpj,
+                "email_cliente": email_cliente,
                 **endereco,
                 "observacoes": observacoes,
                 "total_centavos": total,
@@ -154,7 +157,10 @@ def criar_pedido(
         _desfazer_estoque()
         raise
 
-    return _com_documento_mascarado({**pedido, "itens": itens_salvos})
+    resultado = _com_documento_mascarado({**pedido, "itens": itens_salvos})
+    from app.services import email_service  # import local evita ciclo
+    email_service.enviar_pedido_criado(resultado)
+    return resultado
 
 
 def list_pedidos() -> list[dict]:
@@ -203,7 +209,11 @@ def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
     if _restaurar_estoque:
         repor_estoque_pedido(_restaurar_estoque)
-    return _com_documento_mascarado(result)
+    resultado = _com_documento_mascarado(result)
+    if data.get("status") == "enviado":
+        from app.services import email_service
+        email_service.enviar_pedido_enviado(resultado)
+    return resultado
 
 
 # Pedidos que representam venda concretizada: excluir apagaria também os
