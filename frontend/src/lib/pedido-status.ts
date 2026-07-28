@@ -5,6 +5,8 @@ export const STATUS_PEDIDO = {
   enviado: "Enviado",
   concluido: "Concluído",
   cancelado: "Cancelado",
+  expirado: "Expirado",
+  reembolsado: "Reembolsado",
 } as const;
 
 export type StatusPedido = keyof typeof STATUS_PEDIDO;

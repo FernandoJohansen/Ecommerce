@@ -7,6 +7,7 @@ import logo from "@/assets/logo.png";
 import { ApiError, apiFetch } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { formatarPreco } from "@/lib/precos";
+import { statusPedidoLabel } from "@/lib/pedido-status";
 
 export const Route = createFileRoute("/rastreio/$pedidoId")({
   component: RastreioPage,
@@ -91,7 +92,8 @@ function RastreioPage() {
     enabled: checked,
     // Pedido a caminho pode mudar de status a qualquer momento
     refetchInterval: (query) =>
-      query.state.data && ["concluido", "cancelado"].includes(query.state.data.status)
+      query.state.data &&
+      ["concluido", "cancelado", "expirado", "reembolsado"].includes(query.state.data.status)
         ? false
         : 30_000,
   });
@@ -166,9 +168,17 @@ function RastreioPage() {
   );
 }
 
+const MENSAGEM_TERMINAL: Record<string, string> = {
+  cancelado: "Este pedido foi cancelado. Em caso de dúvida, fale com a gente pelo WhatsApp.",
+  expirado:
+    "Este pedido expirou por falta de pagamento. Fale com a gente pelo WhatsApp para fazer um novo pedido.",
+  reembolsado:
+    "O reembolso deste pedido foi processado. Em caso de dúvidas, fale com a gente pelo WhatsApp.",
+};
+
 function Rastreio({ pedido }: { pedido: Pedido }) {
   const [copiado, setCopiado] = useState(false);
-  const cancelado = pedido.status === "cancelado";
+  const mensagemTerminal = MENSAGEM_TERMINAL[pedido.status] ?? null;
   const etapaAtual = ETAPA_POR_STATUS[pedido.status] ?? 0;
 
   const copiarRastreio = async () => {
@@ -190,17 +200,15 @@ function Rastreio({ pedido }: { pedido: Pedido }) {
             Pedido de{" "}
             {pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("pt-BR") : "—"}
           </span>
-          {cancelado && (
+          {mensagemTerminal && (
             <span className="border border-foreground px-3 py-1 text-xs uppercase tracking-[0.2em]">
-              Cancelado
+              {statusPedidoLabel(pedido.status)}
             </span>
           )}
         </div>
 
-        {cancelado ? (
-          <p className="text-sm text-muted-foreground">
-            Este pedido foi cancelado. Em caso de dúvida, fale com a gente pelo WhatsApp.
-          </p>
+        {mensagemTerminal ? (
+          <p className="text-sm text-muted-foreground">{mensagemTerminal}</p>
         ) : (
           <ol className="space-y-0">
             {ETAPAS.map((etapa, i) => {
@@ -263,7 +271,7 @@ function Rastreio({ pedido }: { pedido: Pedido }) {
         )}
       </div>
 
-      {pedido.codigo_rastreio && !cancelado && (
+      {pedido.codigo_rastreio && !mensagemTerminal && (
         <div className="border border-border p-6 sm:p-8">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Código de rastreio{pedido.frete_servico ? ` — ${pedido.frete_servico}` : ""}
