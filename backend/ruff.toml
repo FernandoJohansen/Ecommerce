@@ -1,0 +1,15 @@
+line-length = 130
+
+[lint]
+select = ["E", "F", "I", "B", "BLE"]
+ignore = [
+    # FastAPI requires Depends/File/Form in function argument defaults.
+    "B008",
+    # JSON/HTTP parsing catch-alls are intentional in webhook and client code.
+    "BLE001",
+    # Converting internal exceptions to HTTPException with no chaining is
+    # intentional — we don't want to leak PSP/auth internals in stack traces.
+    "B904",
+    # zip() sequences in CPF/CNPJ validation have statically known lengths.
+    "B905",
+]
