@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 
 from app.core.payment_token import gerar_token_pagamento
 from app.core.ratelimit import limiter
@@ -23,7 +23,8 @@ router = APIRouter(prefix="/carrinho", tags=["carrinho"])
 
 
 @router.get("", response_model=list[CartItemResponse])
-def get_cart(user=Depends(get_current_user)):
+def get_cart(response: Response, user=Depends(get_current_user)):
+    response.headers["Cache-Control"] = "no-store"
     return list_cart(user.id)
 
 

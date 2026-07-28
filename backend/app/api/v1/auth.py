@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
@@ -207,6 +208,47 @@ def recuperar_senha(request: Request, body: RecuperarSenhaRequest):
         )
     except Exception as e:
         logger.warning("Password recovery request failed: %s", e)
+
+
+@router.delete("/meus-dados", status_code=204)
+def deletar_meus_dados(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    user=Depends(get_current_user),
+):
+    """LGPD Art. 18 — right to erasure. Anonymizes personal fields in past
+    orders (fiscal records retained, personal data replaced) then deletes the
+    auth account. Returns 204 regardless of whether any orders exist."""
+    _anonimizar_pedidos_usuario(user.id)
+    _deletar_conta_supabase(user.id, credentials.credentials)
+
+
+def _anonimizar_pedidos_usuario(user_id: str) -> None:
+    from app.core.database import supabase as _db
+    _db.table("pedidos").update(
+        {
+            "nome_cliente": "ANONIMIZADO",
+            "telefone": None,
+            "cpf_cnpj": None,
+            "rua": None,
+            "numero": None,
+            "complemento": None,
+            "bairro": None,
+            "cidade": None,
+            "cep": None,
+            "observacoes": None,
+            "anonymized_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).eq("user_id", user_id).is_("anonymized_at", "null").execute()
+
+
+def _deletar_conta_supabase(user_id: str, _jwt: str) -> None:
+    response = httpx.delete(
+        f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+        timeout=10,
+    )
+    if response.status_code not in (200, 204):
+        logger.warning("Account deletion failed for %s: %s %s", user_id, response.status_code, response.text)
 
 
 @router.post("/redefinir-senha", status_code=204)

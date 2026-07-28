@@ -18,7 +18,10 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 
 from app.core.config import PEDIDO_EXPIRA_HORAS
-from app.repositories.order_repository import get_pedidos_novos_antes, update_pedido_se_status
+from app.repositories.order_repository import (
+    get_pedidos_novos_antes,
+    update_pedido_se_status,
+)
 from app.services.order_service import quantidades_por_produto
 from app.services.payment_service import bloqueio_para_expiracao
 from app.services.product_service import repor_estoque
@@ -39,12 +42,12 @@ def expirar_pedidos_nao_pagos() -> int:
             continue
         # Só devolve estoque se ESTA varredura fez a transição novo→cancelado;
         # se o status mudou no meio (webhook/admin), não mexe em nada.
-        if not update_pedido_se_status(pedido["id"], "novo", {"status": "cancelado"}):
+        if not update_pedido_se_status(pedido["id"], "novo", {"status": "expirado"}):
             continue
         _devolver_estoque(pedido.get("itens") or [])
         cancelados += 1
     if cancelados:
-        logger.info("Pedidos não pagos expirados: %d cancelado(s)", cancelados)
+        logger.info("Pedidos não pagos expirados: %d expirado(s)", cancelados)
     return cancelados
 
 

@@ -2,16 +2,15 @@ import hashlib
 import hmac
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from app.core.config import (
     MERCADO_PAGO_WEBHOOK_SECRET,
     MERCADO_PAGO_WEBHOOK_TOLERANCIA_SEGUNDOS,
     WEBHOOK_REQUIRE_SIGNATURE,
 )
-from app.core.ratelimit import limiter
+from app.core.ratelimit import _client_ip, limiter
 from app.dependencies.auth import get_optional_user, get_staff_user
-from app.services.audit_service import registrar_auditoria
 from app.schemas.payment import (
     CobrancaPixCreate,
     CobrancaPixResponse,
@@ -22,6 +21,7 @@ from app.schemas.payment import (
     PixResponse,
     ResumoPedidoPagamento,
 )
+from app.services.audit_service import registrar_auditoria
 from app.services.payment_service import (
     consultar_pagamento,
     consultar_pagamento_mp,
@@ -74,7 +74,8 @@ def post_cobranca_pix(request: Request, body: CobrancaPixCreate, user=Depends(ge
 
 
 @router.get("/pix/{txid}", response_model=CobrancaPixResponse)
-def get_cobranca_pix(request: Request, txid: str, user=Depends(get_optional_user)):
+def get_cobranca_pix(request: Request, response: Response, txid: str, user=Depends(get_optional_user)):
+    response.headers["Cache-Control"] = "no-store"
     return consultar_pagamento(txid, user, _token_pagamento(request))
 
 
@@ -83,7 +84,7 @@ def get_cobranca_pix(request: Request, txid: str, user=Depends(get_optional_user
 def post_pagamento_cartao(
     request: Request, body: PagamentoCartaoCreate, user=Depends(get_optional_user)
 ):
-    return criar_pagamento_cartao(body, user, _token_pagamento(request))
+    return criar_pagamento_cartao(body, user, _token_pagamento(request), ip_origem=_client_ip(request))
 
 
 @router.post("/boleto", response_model=PagamentoMpResponse, status_code=201)
@@ -91,11 +92,12 @@ def post_pagamento_cartao(
 def post_pagamento_boleto(
     request: Request, body: PagamentoBoletoCreate, user=Depends(get_optional_user)
 ):
-    return criar_pagamento_boleto(body, user, _token_pagamento(request))
+    return criar_pagamento_boleto(body, user, _token_pagamento(request), ip_origem=_client_ip(request))
 
 
 @router.get("/mp/{mp_payment_id}", response_model=PagamentoMpResponse)
-def get_pagamento_mp(request: Request, mp_payment_id: str, user=Depends(get_optional_user)):
+def get_pagamento_mp(request: Request, response: Response, mp_payment_id: str, user=Depends(get_optional_user)):
+    response.headers["Cache-Control"] = "no-store"
     return consultar_pagamento_mp(mp_payment_id, user, _token_pagamento(request))
 
 
@@ -127,8 +129,7 @@ def _validar_assinatura_mp(request: Request, data_id: str) -> None:
 
     manifesto = ""
     if data_id:
-        # data.id alfanumérico deve entrar em minúsculas (regra da doc MP)
-        manifesto += f"id:{data_id.lower()};"
+        manifesto += f"id:{data_id};"
     request_id = request.headers.get("x-request-id")
     if request_id:
         manifesto += f"request-id:{request_id};"
@@ -189,7 +190,8 @@ async def post_webhook_mercadopago(request: Request):
 
     if tipo != "payment" or not data_id:
         return {"processados": 0}
-    return processar_webhook_mercadopago(str(data_id))
+    mp_event_id = request.headers.get("x-request-id") or str(data_id)
+    return processar_webhook_mercadopago(str(data_id), event_id=mp_event_id)
 
 
 @router.put("/webhook")

@@ -6,7 +6,18 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 
-from app.api.v1 import audit, auth, cart, categories, frete, orders, payments, products, users
+from app.api.v1 import (
+    audit,
+    auth,
+    cart,
+    categories,
+    frete,
+    orders,
+    payments,
+    products,
+    users,
+)
+from app.core.bodylimit import BodySizeLimitMiddleware
 from app.core.config import (
     ALLOWED_ORIGINS,
     ENABLE_API_DOCS,
@@ -15,14 +26,16 @@ from app.core.config import (
     SICREDI_ENABLED,
     WEBHOOK_REQUIRE_SIGNATURE,
 )
-from app.core.bodylimit import BodySizeLimitMiddleware
 from app.core.ratelimit import limiter, rate_limit_handler
 from app.core.securityheaders import SecurityHeadersMiddleware
 from app.services.expiracao_service import expirar_pedidos_nao_pagos
+from app.services.payment_service import sincronizar_pagamentos_pendentes
 
 logger = logging.getLogger(__name__)
 
 EXPIRACAO_INTERVALO_SEGUNDOS = 900
+SINCRONIZACAO_INTERVALO_SEGUNDOS = 3600
+ANONIMIZACAO_INTERVALO_SEGUNDOS = 86400
 
 
 async def _expirar_pedidos_loop() -> None:
@@ -32,6 +45,53 @@ async def _expirar_pedidos_loop() -> None:
         except Exception:
             logger.exception("Falha na varredura de pedidos expirados")
         await asyncio.sleep(EXPIRACAO_INTERVALO_SEGUNDOS)
+
+
+async def _sincronizar_pagamentos_loop() -> None:
+    """Fallback poll: reconcile pending payments that may have missed webhooks."""
+    await asyncio.sleep(300)  # initial delay to let the app warm up
+    while True:
+        try:
+            await asyncio.to_thread(sincronizar_pagamentos_pendentes)
+        except Exception:
+            logger.exception("Falha na sincronização de pagamentos pendentes")
+        await asyncio.sleep(SINCRONIZACAO_INTERVALO_SEGUNDOS)
+
+
+async def _anonimizar_dados_loop() -> None:
+    """LGPD: anonymize personal data in orders older than 5 years."""
+    await asyncio.sleep(600)
+    while True:
+        try:
+            await asyncio.to_thread(_anonimizar_pedidos_antigos)
+        except Exception:
+            logger.exception("Falha na anonimização de dados LGPD")
+        await asyncio.sleep(ANONIMIZACAO_INTERVALO_SEGUNDOS)
+
+
+def _anonimizar_pedidos_antigos() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from app.core.database import supabase
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=5 * 365)).isoformat()
+    result = supabase.table("pedidos").update(
+        {
+            "nome_cliente": "ANONIMIZADO",
+            "telefone": None,
+            "cpf_cnpj": None,
+            "rua": None,
+            "numero": None,
+            "complemento": None,
+            "bairro": None,
+            "cidade": None,
+            "cep": None,
+            "observacoes": None,
+            "anonymized_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).lt("created_at", cutoff).is_("anonymized_at", "null").execute()
+    count = len(result.data or [])
+    if count:
+        logger.info("LGPD: anonimizados %d pedido(s) com mais de 5 anos", count)
 
 
 @asynccontextmanager
@@ -54,13 +114,14 @@ async def lifespan(_app: FastAPI):
             )
     # Sem PSP configurado, todo pedido é negociado manualmente pelo WhatsApp e
     # não deve expirar (comportamento de antes do Sprint 6).
-    task = (
-        asyncio.create_task(_expirar_pedidos_loop())
-        if SICREDI_ENABLED or MERCADO_PAGO_ENABLED
-        else None
-    )
+    psp_ativo = SICREDI_ENABLED or MERCADO_PAGO_ENABLED
+    tasks = []
+    if psp_ativo:
+        tasks.append(asyncio.create_task(_expirar_pedidos_loop()))
+        tasks.append(asyncio.create_task(_sincronizar_pagamentos_loop()))
+    tasks.append(asyncio.create_task(_anonimizar_dados_loop()))
     yield
-    if task:
+    for task in tasks:
         task.cancel()
 
 

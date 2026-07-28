@@ -14,6 +14,8 @@ from app.repositories.product_repository import (
     get_produto_by_nome,
     insert_produto,
     remove_imagem_storage,
+    repor_estoque_multiplo,
+    reservar_estoque_multiplo,
     update_produto,
     update_produto_estoque,
     upload_imagem_storage,
@@ -189,6 +191,36 @@ def baixar_estoque(produto_nome: str, quantidade: int) -> int:
 
 def repor_estoque(produto_nome: str, quantidade: int) -> int:
     return _ajustar_estoque(produto_nome, quantidade)
+
+
+def reservar_estoque_pedido(por_produto: dict[str, int]) -> None:
+    """Atomically reserve stock for all items in a single DB transaction."""
+    try:
+        reservar_estoque_multiplo(por_produto)
+    except Exception as exc:
+        message = str(exc)
+        if "produto_nao_encontrado" in message:
+            nome = message.split(":")[-1].strip() if ":" in message else ""
+            raise HTTPException(
+                status_code=404,
+                detail=f"Produto não encontrado: {nome}" if nome else "Produto não encontrado",
+            ) from exc
+        if "estoque_insuficiente" in message:
+            nome = message.split(":")[-1].strip() if ":" in message else ""
+            raise HTTPException(
+                status_code=409,
+                detail=f"Estoque insuficiente para {nome}" if nome else "Estoque insuficiente",
+            ) from exc
+        raise
+
+
+def repor_estoque_pedido(por_produto: dict[str, int]) -> None:
+    """Atomically restore stock for all items in a single DB transaction."""
+    try:
+        repor_estoque_multiplo(por_produto)
+    except Exception:
+        logger.exception("Falha ao repor estoque para %s", list(por_produto.keys()))
+        raise
 
 
 def _ajustar_estoque(produto_nome: str, delta: int) -> int:

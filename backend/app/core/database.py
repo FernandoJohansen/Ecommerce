@@ -1,6 +1,7 @@
-from supabase import create_client, Client
+from supabase import Client, create_client
 from supabase.client import ClientOptions
-from app.core.config import SUPABASE_URL, SUPABASE_KEY
+
+from app.core.config import SUPABASE_KEY, SUPABASE_URL
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 

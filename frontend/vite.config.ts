@@ -21,6 +21,17 @@ export default async ({ command, mode }: { command: string; mode: string }) => {
   if (command === "build") {
     const { cloudflare } = await import("@cloudflare/vite-plugin");
     plugins.push(cloudflare({ viteEnvironment: { name: "ssr" } }));
+
+    // Issue 21: fail the build when MercadoPago card payment is implicitly
+    // enabled (key present in env) but the public key is missing.
+    const mpEnabled = loadedEnv.VITE_MERCADO_PAGO_ENABLED === "true";
+    const mpPublicKey = loadedEnv.VITE_MERCADO_PAGO_PUBLIC_KEY;
+    if (mpEnabled && !mpPublicKey) {
+      throw new Error(
+        "Build error: VITE_MERCADO_PAGO_ENABLED=true but VITE_MERCADO_PAGO_PUBLIC_KEY is not set. " +
+          "Card payment would silently show as unavailable. Set the key or disable MercadoPago.",
+      );
+    }
   }
 
   return {

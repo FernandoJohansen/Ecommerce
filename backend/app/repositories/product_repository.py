@@ -66,3 +66,19 @@ def adjust_estoque(produto_nome: str, delta: int) -> int:
         "ajustar_estoque", {"p_nome": produto_nome, "p_delta": delta}
     ).execute()
     return result.data
+
+
+def reservar_estoque_multiplo(itens: dict[str, int]) -> None:
+    """Atomically reserve stock for multiple products in a single DB transaction.
+
+    itens: {nome: quantidade}. Raises on the first insufficiency and rolls
+    back all decrements already applied in the same call.
+    """
+    payload = [{"nome": nome, "quantidade": qtd} for nome, qtd in itens.items()]
+    supabase.rpc("reservar_estoque_pedido", {"itens": payload}).execute()
+
+
+def repor_estoque_multiplo(itens: dict[str, int]) -> None:
+    """Atomically restore stock for multiple products in a single DB transaction."""
+    payload = [{"nome": nome, "quantidade": qtd} for nome, qtd in itens.items()]
+    supabase.rpc("repor_estoque_pedido", {"itens": payload}).execute()
