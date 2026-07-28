@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Response, UploadFile
 
 from app.core.imagem import ler_upload_limitado
 from app.dependencies.auth import get_staff_user
-from app.services.audit_service import registrar_auditoria
 from app.schemas.product import (
     EstoqueUpdate,
     ImagemRemove,
@@ -10,6 +9,7 @@ from app.schemas.product import (
     ProdutoCreate,
     ProdutoUpdate,
 )
+from app.services.audit_service import registrar_auditoria
 from app.services.product_service import (
     IMAGEM_MAX_BYTES,
     adicionar_imagem,
@@ -27,7 +27,8 @@ router = APIRouter()
 
 
 @router.get("/produtos")
-def get_produtos():
+def get_produtos(response: Response):
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
     return list_produtos()
 
 
@@ -89,5 +90,6 @@ def delete_imagem(produto_id: str, body: ImagemRemove, user=Depends(get_staff_us
 
 
 @router.get("/aromas")
-def get_aromas():
+def get_aromas(response: Response):
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
     return list_aromas()
