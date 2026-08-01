@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   processed_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE webhook_events ENABLE ROW LEVEL SECURITY;
+
 -- 2. PIX endToEndId uniqueness (compound dedup key with txid)
 CREATE UNIQUE INDEX IF NOT EXISTS pagamentos_e2eid_unique
   ON pagamentos (e2eid)

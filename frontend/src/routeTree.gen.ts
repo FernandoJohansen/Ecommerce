@@ -8,290 +8,290 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as AdminRouteImport } from "./routes/admin";
-import { Route as CadastroRouteImport } from "./routes/cadastro";
-import { Route as CarrinhoRouteImport } from "./routes/carrinho";
-import { Route as CheckoutRouteImport } from "./routes/checkout";
-import { Route as EsqueciSenhaRouteImport } from "./routes/esqueci-senha";
-import { Route as LoginRouteImport } from "./routes/login";
-import { Route as PedidosRouteImport } from "./routes/pedidos";
-import { Route as PerfilRouteImport } from "./routes/perfil";
-import { Route as RedefinirSenhaRouteImport } from "./routes/redefinir-senha";
-import { Route as PagamentoPedidoIdRouteImport } from "./routes/pagamento.$pedidoId";
-import { Route as ProdutoSlugRouteImport } from "./routes/produto.$slug";
-import { Route as RastreioPedidoIdRouteImport } from "./routes/rastreio.$pedidoId";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as CarrinhoRouteImport } from './routes/carrinho'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PedidosRouteImport } from './routes/pedidos'
+import { Route as PerfilRouteImport } from './routes/perfil'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
+import { Route as PagamentoPedidoIdRouteImport } from './routes/pagamento.$pedidoId'
+import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
+import { Route as RastreioPedidoIdRouteImport } from './routes/rastreio.$pedidoId'
 
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AdminRoute = AdminRouteImport.update({
-  id: "/admin",
-  path: "/admin",
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const CadastroRoute = CadastroRouteImport.update({
-  id: "/cadastro",
-  path: "/cadastro",
+  id: '/cadastro',
+  path: '/cadastro',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const CarrinhoRoute = CarrinhoRouteImport.update({
-  id: "/carrinho",
-  path: "/carrinho",
+  id: '/carrinho',
+  path: '/carrinho',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const CheckoutRoute = CheckoutRouteImport.update({
-  id: "/checkout",
-  path: "/checkout",
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
-  id: "/esqueci-senha",
-  path: "/esqueci-senha",
+  id: '/esqueci-senha',
+  path: '/esqueci-senha',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const LoginRoute = LoginRouteImport.update({
-  id: "/login",
-  path: "/login",
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PedidosRoute = PedidosRouteImport.update({
-  id: "/pedidos",
-  path: "/pedidos",
+  id: '/pedidos',
+  path: '/pedidos',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PerfilRoute = PerfilRouteImport.update({
-  id: "/perfil",
-  path: "/perfil",
+  id: '/perfil',
+  path: '/perfil',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
-  id: "/redefinir-senha",
-  path: "/redefinir-senha",
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PagamentoPedidoIdRoute = PagamentoPedidoIdRouteImport.update({
-  id: "/pagamento/$pedidoId",
-  path: "/pagamento/$pedidoId",
+  id: '/pagamento/$pedidoId',
+  path: '/pagamento/$pedidoId',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
-  id: "/produto/$slug",
-  path: "/produto/$slug",
+  id: '/produto/$slug',
+  path: '/produto/$slug',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const RastreioPedidoIdRoute = RastreioPedidoIdRouteImport.update({
-  id: "/rastreio/$pedidoId",
-  path: "/rastreio/$pedidoId",
+  id: '/rastreio/$pedidoId',
+  path: '/rastreio/$pedidoId',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/cadastro": typeof CadastroRoute;
-  "/carrinho": typeof CarrinhoRoute;
-  "/checkout": typeof CheckoutRoute;
-  "/esqueci-senha": typeof EsqueciSenhaRoute;
-  "/login": typeof LoginRoute;
-  "/pedidos": typeof PedidosRoute;
-  "/perfil": typeof PerfilRoute;
-  "/redefinir-senha": typeof RedefinirSenhaRoute;
-  "/pagamento/$pedidoId": typeof PagamentoPedidoIdRoute;
-  "/produto/$slug": typeof ProdutoSlugRoute;
-  "/rastreio/$pedidoId": typeof RastreioPedidoIdRoute;
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/cadastro': typeof CadastroRoute
+  '/carrinho': typeof CarrinhoRoute
+  '/checkout': typeof CheckoutRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
+  '/pedidos': typeof PedidosRoute
+  '/perfil': typeof PerfilRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
+  '/produto/$slug': typeof ProdutoSlugRoute
+  '/rastreio/$pedidoId': typeof RastreioPedidoIdRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/cadastro": typeof CadastroRoute;
-  "/carrinho": typeof CarrinhoRoute;
-  "/checkout": typeof CheckoutRoute;
-  "/esqueci-senha": typeof EsqueciSenhaRoute;
-  "/login": typeof LoginRoute;
-  "/pedidos": typeof PedidosRoute;
-  "/perfil": typeof PerfilRoute;
-  "/redefinir-senha": typeof RedefinirSenhaRoute;
-  "/pagamento/$pedidoId": typeof PagamentoPedidoIdRoute;
-  "/produto/$slug": typeof ProdutoSlugRoute;
-  "/rastreio/$pedidoId": typeof RastreioPedidoIdRoute;
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/cadastro': typeof CadastroRoute
+  '/carrinho': typeof CarrinhoRoute
+  '/checkout': typeof CheckoutRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
+  '/pedidos': typeof PedidosRoute
+  '/perfil': typeof PerfilRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
+  '/produto/$slug': typeof ProdutoSlugRoute
+  '/rastreio/$pedidoId': typeof RastreioPedidoIdRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/cadastro": typeof CadastroRoute;
-  "/carrinho": typeof CarrinhoRoute;
-  "/checkout": typeof CheckoutRoute;
-  "/esqueci-senha": typeof EsqueciSenhaRoute;
-  "/login": typeof LoginRoute;
-  "/pedidos": typeof PedidosRoute;
-  "/perfil": typeof PerfilRoute;
-  "/redefinir-senha": typeof RedefinirSenhaRoute;
-  "/pagamento/$pedidoId": typeof PagamentoPedidoIdRoute;
-  "/produto/$slug": typeof ProdutoSlugRoute;
-  "/rastreio/$pedidoId": typeof RastreioPedidoIdRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/cadastro': typeof CadastroRoute
+  '/carrinho': typeof CarrinhoRoute
+  '/checkout': typeof CheckoutRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
+  '/pedidos': typeof PedidosRoute
+  '/perfil': typeof PerfilRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/pagamento/$pedidoId': typeof PagamentoPedidoIdRoute
+  '/produto/$slug': typeof ProdutoSlugRoute
+  '/rastreio/$pedidoId': typeof RastreioPedidoIdRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/admin"
-    | "/cadastro"
-    | "/carrinho"
-    | "/checkout"
-    | "/esqueci-senha"
-    | "/login"
-    | "/pedidos"
-    | "/perfil"
-    | "/redefinir-senha"
-    | "/pagamento/$pedidoId"
-    | "/produto/$slug"
-    | "/rastreio/$pedidoId";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/admin'
+    | '/cadastro'
+    | '/carrinho'
+    | '/checkout'
+    | '/esqueci-senha'
+    | '/login'
+    | '/pedidos'
+    | '/perfil'
+    | '/redefinir-senha'
+    | '/pagamento/$pedidoId'
+    | '/produto/$slug'
+    | '/rastreio/$pedidoId'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/admin"
-    | "/cadastro"
-    | "/carrinho"
-    | "/checkout"
-    | "/esqueci-senha"
-    | "/login"
-    | "/pedidos"
-    | "/perfil"
-    | "/redefinir-senha"
-    | "/pagamento/$pedidoId"
-    | "/produto/$slug"
-    | "/rastreio/$pedidoId";
+    | '/'
+    | '/admin'
+    | '/cadastro'
+    | '/carrinho'
+    | '/checkout'
+    | '/esqueci-senha'
+    | '/login'
+    | '/pedidos'
+    | '/perfil'
+    | '/redefinir-senha'
+    | '/pagamento/$pedidoId'
+    | '/produto/$slug'
+    | '/rastreio/$pedidoId'
   id:
-    | "__root__"
-    | "/"
-    | "/admin"
-    | "/cadastro"
-    | "/carrinho"
-    | "/checkout"
-    | "/esqueci-senha"
-    | "/login"
-    | "/pedidos"
-    | "/perfil"
-    | "/redefinir-senha"
-    | "/pagamento/$pedidoId"
-    | "/produto/$slug"
-    | "/rastreio/$pedidoId";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/cadastro'
+    | '/carrinho'
+    | '/checkout'
+    | '/esqueci-senha'
+    | '/login'
+    | '/pedidos'
+    | '/perfil'
+    | '/redefinir-senha'
+    | '/pagamento/$pedidoId'
+    | '/produto/$slug'
+    | '/rastreio/$pedidoId'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AdminRoute: typeof AdminRoute;
-  CadastroRoute: typeof CadastroRoute;
-  CarrinhoRoute: typeof CarrinhoRoute;
-  CheckoutRoute: typeof CheckoutRoute;
-  EsqueciSenhaRoute: typeof EsqueciSenhaRoute;
-  LoginRoute: typeof LoginRoute;
-  PedidosRoute: typeof PedidosRoute;
-  PerfilRoute: typeof PerfilRoute;
-  RedefinirSenhaRoute: typeof RedefinirSenhaRoute;
-  PagamentoPedidoIdRoute: typeof PagamentoPedidoIdRoute;
-  ProdutoSlugRoute: typeof ProdutoSlugRoute;
-  RastreioPedidoIdRoute: typeof RastreioPedidoIdRoute;
+  IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  CadastroRoute: typeof CadastroRoute
+  CarrinhoRoute: typeof CarrinhoRoute
+  CheckoutRoute: typeof CheckoutRoute
+  EsqueciSenhaRoute: typeof EsqueciSenhaRoute
+  LoginRoute: typeof LoginRoute
+  PedidosRoute: typeof PedidosRoute
+  PerfilRoute: typeof PerfilRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  PagamentoPedidoIdRoute: typeof PagamentoPedidoIdRoute
+  ProdutoSlugRoute: typeof ProdutoSlugRoute
+  RastreioPedidoIdRoute: typeof RastreioPedidoIdRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/admin": {
-      id: "/admin";
-      path: "/admin";
-      fullPath: "/admin";
-      preLoaderRoute: typeof AdminRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/cadastro": {
-      id: "/cadastro";
-      path: "/cadastro";
-      fullPath: "/cadastro";
-      preLoaderRoute: typeof CadastroRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/carrinho": {
-      id: "/carrinho";
-      path: "/carrinho";
-      fullPath: "/carrinho";
-      preLoaderRoute: typeof CarrinhoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/checkout": {
-      id: "/checkout";
-      path: "/checkout";
-      fullPath: "/checkout";
-      preLoaderRoute: typeof CheckoutRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/esqueci-senha": {
-      id: "/esqueci-senha";
-      path: "/esqueci-senha";
-      fullPath: "/esqueci-senha";
-      preLoaderRoute: typeof EsqueciSenhaRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/login": {
-      id: "/login";
-      path: "/login";
-      fullPath: "/login";
-      preLoaderRoute: typeof LoginRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/pedidos": {
-      id: "/pedidos";
-      path: "/pedidos";
-      fullPath: "/pedidos";
-      preLoaderRoute: typeof PedidosRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/perfil": {
-      id: "/perfil";
-      path: "/perfil";
-      fullPath: "/perfil";
-      preLoaderRoute: typeof PerfilRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/redefinir-senha": {
-      id: "/redefinir-senha";
-      path: "/redefinir-senha";
-      fullPath: "/redefinir-senha";
-      preLoaderRoute: typeof RedefinirSenhaRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/pagamento/$pedidoId": {
-      id: "/pagamento/$pedidoId";
-      path: "/pagamento/$pedidoId";
-      fullPath: "/pagamento/$pedidoId";
-      preLoaderRoute: typeof PagamentoPedidoIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/produto/$slug": {
-      id: "/produto/$slug";
-      path: "/produto/$slug";
-      fullPath: "/produto/$slug";
-      preLoaderRoute: typeof ProdutoSlugRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/rastreio/$pedidoId": {
-      id: "/rastreio/$pedidoId";
-      path: "/rastreio/$pedidoId";
-      fullPath: "/rastreio/$pedidoId";
-      preLoaderRoute: typeof RastreioPedidoIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/carrinho': {
+      id: '/carrinho'
+      path: '/carrinho'
+      fullPath: '/carrinho'
+      preLoaderRoute: typeof CarrinhoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/esqueci-senha': {
+      id: '/esqueci-senha'
+      path: '/esqueci-senha'
+      fullPath: '/esqueci-senha'
+      preLoaderRoute: typeof EsqueciSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedidos': {
+      id: '/pedidos'
+      path: '/pedidos'
+      fullPath: '/pedidos'
+      preLoaderRoute: typeof PedidosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/perfil': {
+      id: '/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof PerfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pagamento/$pedidoId': {
+      id: '/pagamento/$pedidoId'
+      path: '/pagamento/$pedidoId'
+      fullPath: '/pagamento/$pedidoId'
+      preLoaderRoute: typeof PagamentoPedidoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/produto/$slug': {
+      id: '/produto/$slug'
+      path: '/produto/$slug'
+      fullPath: '/produto/$slug'
+      preLoaderRoute: typeof ProdutoSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rastreio/$pedidoId': {
+      id: '/rastreio/$pedidoId'
+      path: '/rastreio/$pedidoId'
+      fullPath: '/rastreio/$pedidoId'
+      preLoaderRoute: typeof RastreioPedidoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -309,17 +309,17 @@ const rootRouteChildren: RootRouteChildren = {
   PagamentoPedidoIdRoute: PagamentoPedidoIdRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
   RastreioPedidoIdRoute: RastreioPedidoIdRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx";
-import type { startInstance } from "./start.ts";
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }
