@@ -248,7 +248,17 @@ def _deletar_conta_supabase(user_id: str, _jwt: str) -> None:
         timeout=10,
     )
     if response.status_code not in (200, 204):
-        logger.warning("Account deletion failed for %s: %s %s", user_id, response.status_code, response.text)
+        logger.error(
+            "Account deletion failed for %s: %s %s — "
+            "SUPABASE_KEY must be the service_role key to use the admin endpoint",
+            user_id,
+            response.status_code,
+            response.text,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Não foi possível excluir a conta. Tente novamente ou contacte o suporte.",
+        )
 
 
 @router.post("/redefinir-senha", status_code=204)
