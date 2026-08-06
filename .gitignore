@@ -41,3 +41,22 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# Windows NTFS alternate data stream files
+*:Zone.Identifier
+
+# Credentials and sensitive docs (keep out of git)
+CREDENCIAIS*.txt
+certs/
+*.cer
+*.key
+*.pem
+
+# Binary/office files — not source code
+*.xlsx
+*.xls
+*.pdf
+howtouse.txt
+
+# GSD project management
+.planning/
