@@ -262,7 +262,8 @@ def _deletar_conta_supabase(user_id: str, _jwt: str) -> None:
 
 
 @router.post("/redefinir-senha", status_code=204)
-def redefinir_senha(body: RedefinirSenhaRequest):
+@limiter.limit("5/minute;15/hour")
+def redefinir_senha(request: Request, body: RedefinirSenhaRequest):
     if senha_vazada(body.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

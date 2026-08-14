@@ -4,8 +4,8 @@ from pydantic import BaseModel, StringConstraints
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: Annotated[str, StringConstraints(strip_whitespace=True, max_length=254)]
+    password: Annotated[str, StringConstraints(max_length=72)]
 
 
 class LoginResponse(BaseModel):
@@ -20,7 +20,7 @@ class LoginResponse(BaseModel):
 class SignupRequest(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
     phone: Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=20)]
-    email: str
+    email: Annotated[str, StringConstraints(strip_whitespace=True, max_length=254)]
     # Mínimo 8 (NIST 800-63B); sem regras de composição — o que barra senha
     # fraca de verdade é a checagem de vazamento no signup (core/senha.py)
     password: Annotated[str, StringConstraints(min_length=8, max_length=72)]
@@ -48,7 +48,7 @@ class ProfileUpdateRequest(BaseModel):
 
 
 class RecuperarSenhaRequest(BaseModel):
-    email: str
+    email: Annotated[str, StringConstraints(strip_whitespace=True, max_length=254)]
 
 
 class RedefinirSenhaRequest(BaseModel):
