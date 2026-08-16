@@ -44,7 +44,7 @@ import { formatarPreco } from "@/lib/precos";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
-  head: () => ({ meta: [{ title: "Admin — Matrix" }] }),
+  head: () => ({ meta: [{ title: "Admin" }] }),
 });
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -379,8 +379,9 @@ function AdminPage() {
                 onClick={() => setAba(tab)}
                 className={aba === tab ? mx.btnActive : mx.btn}
               >
-                {aba === tab ? "> " : "  "}
-                {tab}.exe
+                {matrixMode
+                  ? `${aba === tab ? "> " : "  "}${tab}.exe`
+                  : ({ pedidos: "Pedidos", produtos: "Produtos", usuarios: "Usuários", auditoria: "Auditoria" } as Record<string, string>)[tab] ?? tab}
               </button>
             ))}
           </div>
@@ -428,13 +429,13 @@ function AdminPage() {
             </div>
 
             {isLoading && <MxTableSkeleton cols={11} rows={6} />}
-            {error && <p className="text-[11px] text-red-500">// ERROR: cannot fetch pedidos</p>}
+            {error && <p className="text-[11px] text-red-500">{matrixMode ? "// ERROR: cannot fetch pedidos" : "Erro ao carregar pedidos."}</p>}
             {!isLoading && !error && pedidosFiltrados.length === 0 && (
-              <p className={`text-[11px] ${mx.muted}`}>// RESULT: 0 rows</p>
+              <p className={`text-[11px] ${mx.muted}`}>{matrixMode ? "// RESULT: 0 rows" : "Nenhum pedido encontrado."}</p>
             )}
 
             {pedidosFiltrados.length > 0 && (
-              <div className="overflow-x-auto border border-[#00ff41]/20">
+              <div className={`overflow-x-auto border ${matrixMode ? "border-[#00ff41]/20" : "border-border"}`}>
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>
@@ -553,10 +554,10 @@ function AdminPage() {
             </div>
 
             {carregandoProdutos && <MxTableSkeleton cols={7} rows={5} />}
-            {erroProdutos != null && <p className="text-[11px] text-red-500">// ERROR: cannot fetch produtos</p>}
+            {erroProdutos != null && <p className="text-[11px] text-red-500">{matrixMode ? "// ERROR: cannot fetch produtos" : "Erro ao carregar produtos."}</p>}
 
             {produtos.length > 0 && (
-              <div className="overflow-x-auto border border-[#00ff41]/20">
+              <div className={`overflow-x-auto border ${matrixMode ? "border-[#00ff41]/20" : "border-border"}`}>
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>
@@ -605,10 +606,10 @@ function AdminPage() {
         {aba === "usuarios" && admin && (
           <>
             {carregandoUsuarios && <MxTableSkeleton cols={4} rows={5} />}
-            {erroUsuarios != null && <p className="text-[11px] text-red-500">// ERROR: cannot fetch usuarios</p>}
+            {erroUsuarios != null && <p className="text-[11px] text-red-500">{matrixMode ? "// ERROR: cannot fetch usuarios" : "Erro ao carregar usuários."}</p>}
 
             {usuarios.length > 0 && (
-              <div className="overflow-x-auto border border-[#00ff41]/20">
+              <div className={`overflow-x-auto border ${matrixMode ? "border-[#00ff41]/20" : "border-border"}`}>
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>
@@ -686,16 +687,17 @@ function MxTableSkeleton({ cols, rows }: { cols: number; rows: number }) {
 
 function AuditoriaTab() {
   const mx = useMx();
+  const isMatrix = mx === MX_MATRIX;
   const { data: eventos = [], isLoading, error } = useQuery<EventoAuditoria[]>({
     queryKey: ["auditoria"], queryFn: () => apiFetch("/admin/auditoria"),
   });
 
   if (isLoading) return <MxTableSkeleton cols={5} rows={8} />;
-  if (error != null) return <p className="text-[11px] text-red-500">// ERROR: audit_log migration applied?</p>;
-  if (eventos.length === 0) return <p className={`text-[11px] ${mx.muted}`}>// RESULT: 0 events logged</p>;
+  if (error != null) return <p className="text-[11px] text-red-500">{isMatrix ? "// ERROR: audit_log migration applied?" : "Erro ao carregar auditoria."}</p>;
+  if (eventos.length === 0) return <p className={`text-[11px] ${mx.muted}`}>{isMatrix ? "// RESULT: 0 events logged" : "Nenhum evento registrado."}</p>;
 
   return (
-    <div className="overflow-x-auto border border-[#00ff41]/20">
+    <div className={`overflow-x-auto border ${isMatrix ? "border-[#00ff41]/20" : "border-border"}`}>
       <table className="w-full border-collapse">
         <thead>
           <tr>
@@ -844,10 +846,9 @@ function ProdutoDialog({ produto, onFechar, onSalvo }: { produto: Produto | null
     salvar.mutate({ nome: nome.trim(), tag: tag.trim() || null, descricao: descricao.trim() || null, ordem: Number.parseInt(ordem, 10), tamanhos, precos });
   };
 
-  const erroSalvar = salvar.error instanceof ApiError && salvar.error.detail ? salvar.error.detail
-    : salvar.error ? "// ERROR: save failed" : null;
-
   const isMatrix = mx === MX_MATRIX;
+  const erroSalvar = salvar.error instanceof ApiError && salvar.error.detail ? salvar.error.detail
+    : salvar.error ? (isMatrix ? "// ERROR: save failed" : "Erro ao salvar.") : null;
   const dlgContent = isMatrix ? "max-h-[90vh] overflow-y-auto rounded-none border-[#00ff41]/40 bg-black font-mono text-[#00ff41] sm:max-w-lg" : "max-h-[90vh] overflow-y-auto sm:max-w-lg";
   const dlgTitle = isMatrix ? "font-mono text-[#00ff41]" : "";
   const dlgDesc = isMatrix ? "font-mono text-[11px] text-[#00ff41]/50" : "text-[11px]";
@@ -894,7 +895,7 @@ function ProdutoDialog({ produto, onFechar, onSalvo }: { produto: Produto | null
                 </button>
               </div>
             ))}
-            {new Set(tamanhos).size !== tamanhos.length && <p className="text-[11px] text-red-500">// duplicate tamanhos</p>}
+            {new Set(tamanhos).size !== tamanhos.length && <p className="text-[11px] text-red-500">{isMatrix ? "// duplicate tamanhos" : "Tamanhos duplicados."}</p>}
             <button type="button" onClick={() => setLinhas((cur) => [...cur, { tamanho: "", preco: "" }])} className={mx.btn + " py-1 px-3"}>
               + tamanho
             </button>
@@ -916,6 +917,7 @@ function ProdutoDialog({ produto, onFechar, onSalvo }: { produto: Produto | null
 
 function FotosDialog({ produto, onFechar, onAtualizado }: { produto: Produto; onFechar: () => void; onAtualizado: () => void }) {
   const mx = useMx();
+  const isMatrix = mx === MX_MATRIX;
   const imagens = produto.imagens ?? [];
 
   const enviar = useMutation({
@@ -937,10 +939,8 @@ function FotosDialog({ produto, onFechar, onAtualizado }: { produto: Produto; on
   });
 
   const erro = [enviar.error, remover.error, tornarPrincipal.error]
-    .map((e) => e instanceof ApiError && e.detail ? e.detail : e ? "// ERROR: save failed" : null)
+    .map((e) => e instanceof ApiError && e.detail ? e.detail : e ? (isMatrix ? "// ERROR: save failed" : "Erro ao salvar.") : null)
     .find((m) => m !== null);
-
-  const isMatrix = mx === MX_MATRIX;
   const dlgContent = isMatrix ? "max-h-[90vh] overflow-y-auto rounded-none border-[#00ff41]/40 bg-black font-mono text-[#00ff41] sm:max-w-lg" : "max-h-[90vh] overflow-y-auto sm:max-w-lg";
 
   return (
