@@ -8,6 +8,7 @@ import { formatarPreco, menorPreco, type ProdutoApi } from "@/lib/precos";
 import { imagensDoProduto } from "@/lib/produto-imagens";
 import { slugify, supabaseSrcSet } from "@/lib/utils";
 import { CompraProduto, type Aroma } from "@/components/CompraProduto";
+import { Avaliacoes } from "@/components/Avaliacoes";
 
 export const Route = createFileRoute("/produto/$slug")({
   component: ProdutoPage,
@@ -80,6 +81,7 @@ function ProdutoPage() {
         )}
 
         {produto && (
+          <>
           <div className="grid gap-12 md:grid-cols-2">
             <div className="space-y-3">
               {fotoAtual ? (
@@ -157,6 +159,9 @@ function ProdutoPage() {
               </div>
             </div>
           </div>
+
+          <Avaliacoes produtoId={produto.id} />
+          </>
         )}
       </div>
     </div>

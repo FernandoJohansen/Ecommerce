@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from app.api.v1 import (
     audit,
     auth,
+    avaliacoes,
     cart,
     categories,
     frete,
@@ -151,6 +152,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(products.router)
+api_router.include_router(avaliacoes.router)
 api_router.include_router(orders.router)
 api_router.include_router(categories.router)
 api_router.include_router(auth.router)

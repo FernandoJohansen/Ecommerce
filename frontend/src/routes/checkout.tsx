@@ -216,6 +216,9 @@ function CheckoutPage() {
   const [obs, setObs] = useState("");
   const [erros, setErros] = useState<Record<string, string>>({});
 
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [cepNaoEncontrado, setCepNaoEncontrado] = useState(false);
+
   // Pre-fill email from auth profile for logged-in users
   const { data: perfil } = useQuery<{ email: string }>({
     queryKey: ["perfil-email"],
@@ -226,10 +229,37 @@ function CheckoutPage() {
     if (perfil?.email && !email) setEmail(perfil.email);
   }, [perfil, email]);
 
+  const cepDigitos = cep.replace(/\D/g, "");
+
+  useEffect(() => {
+    if (cepDigitos.length !== 8) {
+      setCepNaoEncontrado(false);
+      return;
+    }
+    let cancelado = false;
+    setBuscandoCep(true);
+    setCepNaoEncontrado(false);
+    fetch(`https://viacep.com.br/ws/${cepDigitos}/json/`)
+      .then((r) => r.json())
+      .then((data: Record<string, string>) => {
+        if (cancelado) return;
+        if (data.erro) {
+          setCepNaoEncontrado(true);
+        } else {
+          if (data.logradouro) setRua(data.logradouro);
+          if (data.bairro) setBairro(data.bairro);
+          setCidade(data.localidade ?? "");
+          setEstado(data.uf ?? "");
+        }
+      })
+      .catch(() => { if (!cancelado) setCepNaoEncontrado(true); })
+      .finally(() => { if (!cancelado) setBuscandoCep(false); });
+    return () => { cancelado = true; };
+  }, [cepDigitos]);
+
   // Cotação de frete: dispara quando o CEP fica completo e os itens têm
   // preço. 503 = integração desligada → o pedido segue sem frete (entrega
   // combinada pelo WhatsApp), como antes do Sprint 7.
-  const cepDigitos = cep.replace(/\D/g, "");
   const itensFrete = itens.map((item) => ({
     produto_nome: item.produto_nome,
     tamanho: item.tamanho,
@@ -410,9 +440,26 @@ function CheckoutPage() {
                 })}
               </div>
               <div className="grid gap-6 sm:grid-cols-[140px_1fr_100px]">
-                {campo("CEP", cep, (v) => setCep(formatarCep(v)), "cep", {
-                  placeholder: "84000-000",
-                })}
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    CEP
+                  </Label>
+                  <Input
+                    value={cep}
+                    placeholder="84000-000"
+                    onChange={(e) => setCep(formatarCep(e.target.value))}
+                    className="rounded-none border-0 border-b border-foreground bg-transparent px-0"
+                  />
+                  {buscandoCep && (
+                    <p className="text-xs text-muted-foreground">Buscando endereço…</p>
+                  )}
+                  {!buscandoCep && cepNaoEncontrado && (
+                    <p className="text-xs text-destructive">CEP não encontrado</p>
+                  )}
+                  {!buscandoCep && !cepNaoEncontrado && erros.cep && (
+                    <p className="text-xs text-destructive">{erros.cep}</p>
+                  )}
+                </div>
                 {campo("Rua", rua, setRua, "rua")}
                 {campo("Número", numero, setNumero, "numero")}
               </div>
