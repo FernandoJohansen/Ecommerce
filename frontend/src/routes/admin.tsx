@@ -1,7 +1,6 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,19 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import logo from "@/assets/logo.png";
-import { Skeleton } from "@/components/ui/skeleton";
+import { createContext, useContext } from "react";
 import { ApiError, apiFetch } from "@/lib/api";
-import { isAdmin, isAuthenticated, isStaff, logout, type Role } from "@/lib/auth";
+import { getUserEmail, isAdmin, isAuthenticated, isStaff, logout, type Role } from "@/lib/auth";
+
+const MATRIX_USER = "paradoxxnoob@gmail.com";
 import {
   STATUS_PEDIDO as STATUS,
   statusPedidoLabel as statusLabel,
@@ -52,90 +44,51 @@ import { formatarPreco } from "@/lib/precos";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
+  head: () => ({ meta: [{ title: "Admin — Matrix" }] }),
 });
 
+// ─── types ────────────────────────────────────────────────────────────────────
+
 type PedidoItem = {
-  id: string;
-  produto_nome: string;
-  tamanho: string;
-  aroma: string;
-  refil: boolean;
-  quantidade: number;
-  preco_unitario_centavos: number;
-  subtotal_centavos: number;
+  id: string; produto_nome: string; tamanho: string; aroma: string;
+  refil: boolean; quantidade: number; preco_unitario_centavos: number; subtotal_centavos: number;
 };
 
 type Pedido = {
-  id: string;
-  nome_cliente: string | null;
-  telefone: string | null;
-  cep: string | null;
-  rua: string | null;
-  numero: string | null;
-  complemento: string | null;
-  bairro: string | null;
-  cidade: string | null;
-  estado: string | null;
-  // Mascarado pelo backend (LGPD): ***.456.789-** / **.345.678/0001-**
-  cpf_cnpj: string | null;
-  observacoes: string | null;
-  total_centavos: number;
-  frete_centavos: number;
-  frete_servico: string | null;
-  frete_prazo_dias: number | null;
-  codigo_rastreio: string | null;
-  status: string;
-  created_at: string;
-  itens: PedidoItem[];
+  id: string; nome_cliente: string | null; telefone: string | null; cep: string | null;
+  rua: string | null; numero: string | null; complemento: string | null; bairro: string | null;
+  cidade: string | null; estado: string | null; cpf_cnpj: string | null; observacoes: string | null;
+  total_centavos: number; frete_centavos: number; frete_servico: string | null;
+  frete_prazo_dias: number | null; codigo_rastreio: string | null; status: string;
+  created_at: string; itens: PedidoItem[];
 };
-
-const enderecoResumo = (pedido: Pedido) => {
-  if (!pedido.rua) return null;
-  const linha1 = [pedido.rua, pedido.numero].filter(Boolean).join(", ");
-  const linha2 = [pedido.bairro, pedido.cidade, pedido.estado].filter(Boolean).join(" · ");
-  return [linha1, pedido.complemento, linha2, pedido.cep].filter(Boolean).join(" — ");
-};
-
-// Receita conta pedidos que foram de fato pagos (inclui já enviados/concluídos)
-const RECEITA_STATUS = new Set<string>(["pago", "enviado", "concluido"]);
-
-// Pedido pago não pode ser excluído (o backend recusa com 409 — apagaria o
-// histórico de pagamento); cancele em vez de excluir
-const podeExcluir = (pedido: Pedido) => !RECEITA_STATUS.has(pedido.status);
 
 type Usuario = {
-  id: string;
-  email: string;
-  name: string | null;
-  role: Role;
-  created_at: string | null;
+  id: string; email: string; name: string | null; role: Role; created_at: string | null;
 };
 
 type EventoAuditoria = {
-  id: string;
-  user_email: string | null;
-  acao: string;
-  alvo_tipo: string;
-  alvo_id: string | null;
-  detalhes: Record<string, unknown> | null;
-  created_at: string;
+  id: string; user_email: string | null; acao: string; alvo_tipo: string;
+  alvo_id: string | null; detalhes: Record<string, unknown> | null; created_at: string;
 };
 
 type Produto = {
-  id: string;
-  nome: string;
-  tamanhos: string[];
-  descricao: string | null;
-  tag: string | null;
-  ordem: number;
-  ativo: boolean;
-  estoque: number;
-  precos: Record<string, number>;
-  // undefined enquanto a migration das imagens não foi aplicada no banco
-  imagens?: string[];
+  id: string; nome: string; tamanhos: string[]; descricao: string | null; tag: string | null;
+  ordem: number; ativo: boolean; estoque: number; precos: Record<string, number>; imagens?: string[];
 };
 
-// Converte "79,90" (ou "79.90") para centavos; null quando inválido.
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+const enderecoResumo = (p: Pedido) => {
+  if (!p.rua) return null;
+  return [[p.rua, p.numero].filter(Boolean).join(", "), p.complemento,
+    [p.bairro, p.cidade, p.estado].filter(Boolean).join(" · "), p.cep]
+    .filter(Boolean).join(" — ");
+};
+
+const RECEITA_STATUS = new Set<string>(["pago", "enviado", "concluido"]);
+const podeExcluir = (p: Pedido) => !RECEITA_STATUS.has(p.status);
+
 const parsePrecoReais = (valor: string): number | null => {
   const texto = valor.trim();
   if (!texto) return null;
@@ -147,11 +100,133 @@ const parsePrecoReais = (valor: string): number | null => {
 
 const precoParaInput = (centavos: number) => (centavos / 100).toFixed(2).replace(".", ",");
 
-const ROLES: Record<Role, string> = {
-  customer: "Cliente",
-  staff: "Equipe",
-  admin: "Administrador",
+const ROLES: Record<Role, string> = { customer: "CUSTOMER", staff: "STAFF", admin: "ADMIN" };
+
+const ACOES_AUDITORIA: Record<string, string> = {
+  "pedido.atualizar": "pedido.update", "pedido.excluir": "pedido.delete",
+  "produto.criar": "produto.create", "produto.atualizar": "produto.update",
+  "produto.estoque": "produto.stock", "produto.imagem.adicionar": "imagem.add",
+  "produto.imagem.reordenar": "imagem.reorder", "produto.imagem.remover": "imagem.remove",
+  "usuario.role": "usuario.role", "pix.webhook.registrar": "pix.webhook.register",
 };
+
+const STATUS_COLOR: Record<string, string> = {
+  novo: "text-[#00ff41]/60", em_andamento: "text-yellow-400", pago: "text-[#00ff41]",
+  enviado: "text-cyan-400", concluido: "text-[#00ff41]", cancelado: "text-red-500",
+  expirado: "text-red-500/70", reembolsado: "text-[#00ff41]/50",
+};
+
+// ─── matrix rain ──────────────────────────────────────────────────────────────
+
+function MatrixRain() {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const chars = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ01アカサタナ";
+    const fontSize = 14;
+    let cols = Math.floor(canvas.width / fontSize);
+    let drops = new Array(cols).fill(1);
+
+    const draw = () => {
+      ctx.fillStyle = "rgba(0,0,0,0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.font = `${fontSize}px monospace`;
+      drops.forEach((y, i) => {
+        const char = chars[Math.floor(Math.random() * chars.length)];
+        const brightness = Math.random() > 0.95 ? "#ffffff" : "#00ff41";
+        ctx.fillStyle = brightness;
+        ctx.fillText(char, i * fontSize, y * fontSize);
+        if (y * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+        drops[i]++;
+      });
+    };
+
+    const onResize = () => {
+      cols = Math.floor(canvas.width / fontSize);
+      drops = new Array(cols).fill(1);
+    };
+    window.addEventListener("resize", onResize);
+
+    const interval = setInterval(draw, 40);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={ref}
+      className="pointer-events-none fixed inset-0 z-0 opacity-[0.07]"
+    />
+  );
+}
+
+// ─── matrix ui primitives ─────────────────────────────────────────────────────
+
+const MX_MATRIX = {
+  page: "min-h-screen bg-black font-mono text-[#00ff41]",
+  border: "border-[#00ff41]/30",
+  borderActive: "border-[#00ff41]",
+  muted: "text-[#00ff41]/50",
+  label: "text-[10px] uppercase tracking-[0.3em] text-[#00ff41]/60",
+  btn: "border border-[#00ff41]/50 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-[#00ff41]/80 transition-all duration-200 hover:border-[#00ff41] hover:bg-[#00ff41]/10 hover:text-[#00ff41] disabled:opacity-30",
+  btnActive: "border border-[#00ff41] bg-[#00ff41]/10 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-[#00ff41]",
+  btnFill: "border border-[#00ff41] bg-[#00ff41] px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-black transition-all duration-200 hover:bg-[#00ff41]/80 disabled:opacity-30",
+  input: "bg-black border-[#00ff41]/40 text-[#00ff41] font-mono placeholder:text-[#00ff41]/25 focus:border-[#00ff41] rounded-none",
+  row: "border-b border-[#00ff41]/10 transition-colors duration-150 hover:bg-[#00ff41]/5",
+  th: "text-[10px] uppercase tracking-[0.3em] text-[#00ff41]/50 font-normal border-b border-[#00ff41]/20 py-3 px-4",
+  td: "py-3 px-4 text-[11px] text-[#00ff41]/80 align-top",
+};
+
+const MX_NORMAL = {
+  page: "min-h-screen bg-background font-sans text-foreground",
+  border: "border-border",
+  borderActive: "border-foreground",
+  muted: "text-muted-foreground",
+  label: "text-[10px] uppercase tracking-[0.3em] text-muted-foreground",
+  btn: "border border-border px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground transition-all duration-200 hover:border-foreground hover:text-foreground disabled:opacity-30",
+  btnActive: "border border-foreground bg-foreground/10 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-foreground",
+  btnFill: "border border-foreground bg-foreground px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-background transition-all duration-200 hover:bg-foreground/80 disabled:opacity-30",
+  input: "bg-background border-border text-foreground placeholder:text-muted-foreground/40 focus:border-foreground rounded-none",
+  row: "border-b border-border transition-colors duration-150 hover:bg-secondary/40",
+  th: "text-[10px] uppercase tracking-[0.3em] text-muted-foreground font-normal border-b border-border py-3 px-4",
+  td: "py-3 px-4 text-[11px] text-foreground/80 align-top",
+};
+
+const MxCtx = createContext(MX_NORMAL);
+function useMx() { return useContext(MxCtx); }
+
+function MxInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const isMatrix = useContext(MxCtx) === MX_MATRIX;
+  const base = isMatrix
+    ? "w-full bg-black border border-[#00ff41]/40 px-3 py-2 text-[11px] font-mono text-[#00ff41] placeholder:text-[#00ff41]/25 focus:border-[#00ff41] outline-none transition-colors"
+    : "w-full bg-background border border-border px-3 py-2 text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:border-foreground outline-none transition-colors";
+  return <input {...props} className={`${base} ${props.className ?? ""}`} />;
+}
+
+function MxTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const isMatrix = useContext(MxCtx) === MX_MATRIX;
+  const base = isMatrix
+    ? "w-full bg-black border border-[#00ff41]/40 px-3 py-2 text-[11px] font-mono text-[#00ff41] placeholder:text-[#00ff41]/25 focus:border-[#00ff41] outline-none transition-colors resize-y"
+    : "w-full bg-background border border-border px-3 py-2 text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:border-foreground outline-none transition-colors resize-y";
+  return <textarea {...props} className={`${base} ${props.className ?? ""}`} />;
+}
+
+// ─── main page ────────────────────────────────────────────────────────────────
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -163,32 +238,21 @@ function AdminPage() {
   const [fotosDeId, setFotosDeId] = useState<string | null>(null);
   const admin = checked && isAdmin();
   const staff = checked && isStaff();
+  const matrixMode = checked && getUserEmail() === MATRIX_USER;
+  const mx = matrixMode ? MX_MATRIX : MX_NORMAL;
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      navigate({ to: "/login" });
-      return;
-    }
+    if (!isAuthenticated()) { navigate({ to: "/login" }); return; }
     setChecked(true);
   }, [navigate]);
 
-  const {
-    data: pedidos = [],
-    isLoading,
-    error,
-  } = useQuery<Pedido[]>({
-    queryKey: ["pedidos"],
-    queryFn: () => apiFetch("/pedidos"),
-    enabled: checked,
+  const { data: pedidos = [], isLoading, error } = useQuery<Pedido[]>({
+    queryKey: ["pedidos"], queryFn: () => apiFetch("/pedidos"), enabled: checked,
   });
 
   const atualizarStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiFetch(`/pedidos/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      }),
+      apiFetch(`/pedidos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pedidos"] }),
   });
 
@@ -199,31 +263,17 @@ function AdminPage() {
 
   const salvarRastreio = useMutation({
     mutationFn: ({ id, codigo }: { id: string; codigo: string }) =>
-      apiFetch(`/pedidos/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo_rastreio: codigo }),
-      }),
+      apiFetch(`/pedidos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo_rastreio: codigo }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pedidos"] }),
   });
 
-  const {
-    data: usuarios = [],
-    isLoading: carregandoUsuarios,
-    error: erroUsuarios,
-  } = useQuery<Usuario[]>({
-    queryKey: ["usuarios"],
-    queryFn: () => apiFetch("/admin/usuarios"),
+  const { data: usuarios = [], isLoading: carregandoUsuarios, error: erroUsuarios } = useQuery<Usuario[]>({
+    queryKey: ["usuarios"], queryFn: () => apiFetch("/admin/usuarios"),
     enabled: admin && aba === "usuarios",
   });
 
-  const {
-    data: produtos = [],
-    isLoading: carregandoProdutos,
-    error: erroProdutos,
-  } = useQuery<Produto[]>({
-    queryKey: ["produtos-admin"],
-    queryFn: () => apiFetch("/produtos/admin"),
+  const { data: produtos = [], isLoading: carregandoProdutos, error: erroProdutos } = useQuery<Produto[]>({
+    queryKey: ["produtos-admin"], queryFn: () => apiFetch("/produtos/admin"),
     enabled: staff && aba === "produtos",
   });
 
@@ -234,325 +284,302 @@ function AdminPage() {
 
   const salvarEstoque = useMutation({
     mutationFn: ({ id, estoque }: { id: string; estoque: number }) =>
-      apiFetch(`/produtos/${id}/estoque`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estoque }),
-      }),
+      apiFetch(`/produtos/${id}/estoque`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ estoque }) }),
     onSuccess: invalidarProdutos,
   });
 
   const alternarAtivo = useMutation({
     mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) =>
-      apiFetch(`/produtos/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ativo }),
-      }),
+      apiFetch(`/produtos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo }) }),
     onSuccess: invalidarProdutos,
   });
 
   const alterarRole = useMutation({
     mutationFn: ({ id, role }: { id: string; role: Role }) =>
-      apiFetch(`/admin/usuarios/${id}/role`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      }),
+      apiFetch(`/admin/usuarios/${id}/role`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
   });
 
-  const handleLogout = async () => {
-    await logout();
-    navigate({ to: "/login" });
-  };
+  const handleLogout = async () => { await logout(); navigate({ to: "/login" }); };
 
   if (!checked) return null;
 
-  const contagem = pedidos.reduce<Record<string, number>>((acc, pedido) => {
-    acc[pedido.status] = (acc[pedido.status] ?? 0) + 1;
-    return acc;
+  const contagem = pedidos.reduce<Record<string, number>>((acc, p) => {
+    acc[p.status] = (acc[p.status] ?? 0) + 1; return acc;
   }, {});
 
-  const pedidosPagos = pedidos.filter((pedido) => RECEITA_STATUS.has(pedido.status));
-  const receitaTotal = pedidosPagos.reduce((soma, pedido) => soma + pedido.total_centavos, 0);
+  const pedidosPagos = pedidos.filter((p) => RECEITA_STATUS.has(p.status));
+  const receitaTotal = pedidosPagos.reduce((s, p) => s + p.total_centavos, 0);
   const agora = new Date();
-  const pagosNoMes = pedidosPagos.filter((pedido) => {
-    const data = new Date(pedido.created_at);
-    return data.getMonth() === agora.getMonth() && data.getFullYear() === agora.getFullYear();
+  const pagosNoMes = pedidosPagos.filter((p) => {
+    const d = new Date(p.created_at);
+    return d.getMonth() === agora.getMonth() && d.getFullYear() === agora.getFullYear();
   });
-  const receitaNoMes = pagosNoMes.reduce((soma, pedido) => soma + pedido.total_centavos, 0);
+  const receitaNoMes = pagosNoMes.reduce((s, p) => s + p.total_centavos, 0);
   const ticketMedio = pedidosPagos.length > 0 ? Math.round(receitaTotal / pedidosPagos.length) : 0;
 
   const metricas = [
-    {
-      label: "Receita no mês",
-      valor: formatarPreco(receitaNoMes),
-      nota: `${pagosNoMes.length} pedido(s)`,
-    },
-    {
-      label: "Receita total",
-      valor: formatarPreco(receitaTotal),
-      nota: `${pedidosPagos.length} pedido(s)`,
-    },
-    {
-      label: "Ticket médio",
-      valor: pedidosPagos.length > 0 ? formatarPreco(ticketMedio) : "—",
-      nota: "pedidos pagos",
-    },
-    { label: "A enviar", valor: String(contagem.pago ?? 0), nota: "pagos aguardando envio" },
+    { label: "receita_mes", valor: formatarPreco(receitaNoMes), nota: `${pagosNoMes.length} pedidos` },
+    { label: "receita_total", valor: formatarPreco(receitaTotal), nota: `${pedidosPagos.length} pedidos pagos` },
+    { label: "ticket_medio", valor: pedidosPagos.length > 0 ? formatarPreco(ticketMedio) : "NULL", nota: "avg order value" },
+    { label: "a_enviar", valor: String(contagem.pago ?? 0), nota: "aguardando envio" },
   ];
 
-  const pedidosFiltrados =
-    filtro === "todos" ? pedidos : pedidos.filter((pedido) => pedido.status === filtro);
+  const pedidosFiltrados = filtro === "todos" ? pedidos : pedidos.filter((p) => p.status === filtro);
 
-  const filtros: Array<{ value: "todos" | StatusKey; label: string; count: number }> = [
-    { value: "todos", label: "Todos", count: pedidos.length },
-    ...(Object.keys(STATUS) as StatusKey[]).map((key) => ({
-      value: key,
-      label: STATUS[key],
-      count: contagem[key] ?? 0,
-    })),
-  ];
+  const tabs = admin
+    ? (["pedidos", "produtos", "usuarios", "auditoria"] as const)
+    : (["pedidos", "produtos"] as const);
 
   return (
-    <div className="min-h-screen bg-background px-4 py-10">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-10 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <img src={logo} alt="Carolina Viapiana" width={40} height={40} />
-            <span className="serif text-xl">Admin</span>
-          </Link>
-          <div className="flex gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
-            >
-              <Link to="/">Loja</Link>
-            </Button>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
-            >
-              Sair
-            </Button>
-          </div>
-        </div>
+    <MxCtx.Provider value={mx}>
+    <div className={mx.page}>
+      {matrixMode && <MatrixRain />}
 
+      {/* scanline overlay */}
+      {matrixMode && (
+        <div
+          className="pointer-events-none fixed inset-0 z-10"
+          style={{
+            backgroundImage: "repeating-linear-gradient(0deg, rgba(0,255,65,0.015) 0px, rgba(0,255,65,0.015) 1px, transparent 1px, transparent 3px)",
+          }}
+        />
+      )}
+
+      <div className="relative z-20 mx-auto max-w-7xl px-4 py-8">
+
+        {/* Header */}
+        <header className={`mb-10 flex items-start justify-between border-b pb-6 ${matrixMode ? "border-[#00ff41]/20" : "border-border"}`}>
+          <div className={matrixMode ? "animate-matrix-flicker" : ""}>
+            <p className={mx.label}>{matrixMode ? "// carolina_viapiana.sys" : "Admin"}</p>
+            <h1 className={`mt-1 text-2xl font-bold ${matrixMode ? "tracking-widest text-[#00ff41] font-mono" : "serif"}`}>
+              {matrixMode ? <>ADMIN_CONSOLE<span className="animate-matrix-blink ml-1">█</span></> : "Painel"}
+            </h1>
+            <p className={`mt-1 text-[10px] ${mx.muted}`}>
+              {matrixMode ? `${new Date().toISOString().replace("T", " ").slice(0, 19)} UTC` : new Date().toLocaleString("pt-BR")}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link to="/" className={mx.btn}>
+              {matrixMode ? "< loja" : "← Loja"}
+            </Link>
+            <button type="button" onClick={handleLogout} className={mx.btn}>
+              {matrixMode ? "logout /" : "Sair"}
+            </button>
+          </div>
+        </header>
+
+        {/* Tabs */}
         {staff && (
-          <div className="mb-8 flex flex-wrap gap-2">
-            {(admin
-              ? (["pedidos", "produtos", "usuarios", "auditoria"] as const)
-              : (["pedidos", "produtos"] as const)
-            ).map((tab) => (
+          <div className={`mb-8 flex flex-wrap gap-2 border-b pb-4 ${matrixMode ? "border-[#00ff41]/10" : "border-border"}`}>
+            {tabs.map((tab) => (
               <button
                 key={tab}
+                type="button"
                 onClick={() => setAba(tab)}
-                className={`border px-6 py-2 text-xs uppercase tracking-[0.2em] transition-colors ${
-                  aba === tab
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
-                }`}
+                className={aba === tab ? mx.btnActive : mx.btn}
               >
-                {
-                  {
-                    pedidos: "Pedidos",
-                    produtos: "Produtos",
-                    usuarios: "Usuários",
-                    auditoria: "Auditoria",
-                  }[tab]
-                }
+                {aba === tab ? "> " : "  "}
+                {tab}.exe
               </button>
             ))}
           </div>
         )}
 
-        {aba === "auditoria" && admin && <AuditoriaTab />}
-
-        {aba === "usuarios" && admin && (
+        {/* ── PEDIDOS ── */}
+        {aba === "pedidos" && (
           <>
-            {carregandoUsuarios && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>Cadastro</TableHead>
-                      <TableHead>Papel</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-32 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-48 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-20 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-8 w-36 rounded-none" />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            {/* metrics */}
+            <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {isLoading
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className={`border p-4 animate-pulse ${matrixMode ? "border-[#00ff41]/20" : "border-border"}`}>
+                      <div className={`h-2 w-24 mb-3 ${matrixMode ? "bg-[#00ff41]/10" : "bg-muted"}`} />
+                      <div className={`h-6 w-20 mb-2 ${matrixMode ? "bg-[#00ff41]/10" : "bg-muted"}`} />
+                      <div className={`h-2 w-16 ${matrixMode ? "bg-[#00ff41]/10" : "bg-muted"}`} />
+                    </div>
+                  ))
+                : !error
+                  ? metricas.map((m) => (
+                      <div key={m.label} className={`border p-4 transition-colors duration-200 ${matrixMode ? "border-[#00ff41]/20 hover:border-[#00ff41]/40" : "border-border hover:border-foreground/30"}`}>
+                        <p className={mx.label}>{m.label}</p>
+                        <p className={`mt-2 text-xl ${matrixMode ? "font-mono text-[#00ff41]" : "serif"}`}>{m.valor}</p>
+                        <p className={`mt-1 text-[10px] ${mx.muted}`}>{m.nota}</p>
+                      </div>
+                    ))
+                  : null}
+            </div>
+
+            {/* filters */}
+            <div className="mb-6 flex flex-wrap gap-2">
+              {([{ value: "todos" as const, label: "ALL", count: pedidos.length },
+                ...(Object.keys(STATUS) as StatusKey[]).map((k) => ({
+                  value: k, label: STATUS[k].toUpperCase(), count: contagem[k] ?? 0,
+                }))]).map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setFiltro(f.value)}
+                  className={filtro === f.value ? mx.btnActive : mx.btn}
+                >
+                  {f.label} ({f.count})
+                </button>
+              ))}
+            </div>
+
+            {isLoading && <MxTableSkeleton cols={11} rows={6} />}
+            {error && <p className="text-[11px] text-red-500">// ERROR: cannot fetch pedidos</p>}
+            {!isLoading && !error && pedidosFiltrados.length === 0 && (
+              <p className={`text-[11px] ${mx.muted}`}>// RESULT: 0 rows</p>
             )}
 
-            {erroUsuarios != null && (
-              <p className="text-sm text-destructive">Não foi possível carregar os usuários.</p>
-            )}
-
-            {usuarios.length > 0 && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>Cadastro</TableHead>
-                      <TableHead>Papel</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {usuarios.map((usuario) => (
-                      <TableRow key={usuario.id}>
-                        <TableCell>{usuario.name ?? "—"}</TableCell>
-                        <TableCell>{usuario.email}</TableCell>
-                        <TableCell>
-                          {usuario.created_at
-                            ? new Date(usuario.created_at).toLocaleDateString("pt-BR")
-                            : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={usuario.role}
-                            onValueChange={(role) =>
-                              alterarRole.mutate({ id: usuario.id, role: role as Role })
-                            }
-                          >
-                            <SelectTrigger className="w-[180px] rounded-none text-xs uppercase tracking-[0.1em]">
-                              <SelectValue>{ROLES[usuario.role]}</SelectValue>
+            {pedidosFiltrados.length > 0 && (
+              <div className="overflow-x-auto border border-[#00ff41]/20">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      {["data", "itens", "total", "frete", "cliente", "telefone", "entrega", "rastreio", "obs", "status", "ações"].map((h) => (
+                        <th key={h} className={mx.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pedidosFiltrados.map((pedido) => (
+                      <tr key={pedido.id} className={mx.row}>
+                        <td className={mx.td + " whitespace-nowrap"}>
+                          {new Date(pedido.created_at).toLocaleString("pt-BR")}
+                        </td>
+                        <td className={mx.td}>
+                          {pedido.itens.map((item) => (
+                            <div key={item.id} className="whitespace-nowrap">
+                              {item.quantidade}× {item.produto_nome} {item.tamanho} · {item.aroma}
+                              {item.refil ? " +refil" : ""}
+                            </div>
+                          ))}
+                        </td>
+                        <td className={mx.td + " whitespace-nowrap"}>{formatarPreco(pedido.total_centavos)}</td>
+                        <td className={mx.td + " whitespace-nowrap"}>
+                          {pedido.frete_servico ? (
+                            <>
+                              {pedido.frete_servico}
+                              <span className={`block text-[10px] ${mx.muted}`}>
+                                {pedido.frete_centavos === 0 ? "GRATIS" : formatarPreco(pedido.frete_centavos)}
+                                {pedido.frete_prazo_dias != null ? ` · ${pedido.frete_prazo_dias}d` : ""}
+                              </span>
+                            </>
+                          ) : "—"}
+                        </td>
+                        <td className={mx.td}>
+                          {pedido.nome_cliente ?? "—"}
+                          {pedido.cpf_cnpj && <span className={`block whitespace-nowrap text-[10px] ${mx.muted}`}>{pedido.cpf_cnpj}</span>}
+                        </td>
+                        <td className={mx.td + " whitespace-nowrap"}>{pedido.telefone ?? "—"}</td>
+                        <td className={mx.td + " max-w-[220px]"}>{enderecoResumo(pedido) ?? "—"}</td>
+                        <td className={mx.td}>
+                          <RastreioCell
+                            key={`${pedido.id}-${pedido.codigo_rastreio ?? ""}`}
+                            codigo={pedido.codigo_rastreio}
+                            salvando={salvarRastreio.isPending && salvarRastreio.variables?.id === pedido.id}
+                            onSalvar={(c) => salvarRastreio.mutate({ id: pedido.id, codigo: c })}
+                          />
+                        </td>
+                        <td className={mx.td}>{pedido.observacoes ?? "—"}</td>
+                        <td className={mx.td}>
+                          <Select value={pedido.status} onValueChange={(s) => atualizarStatus.mutate({ id: pedido.id, status: s })}>
+                            <SelectTrigger className={matrixMode ? "w-[140px] rounded-none border-[#00ff41]/30 bg-black font-mono text-[10px] text-[#00ff41] uppercase tracking-[0.1em] hover:border-[#00ff41]" : "w-[140px] rounded-none text-[10px] uppercase"}>
+                              <SelectValue>
+                                <span className={matrixMode ? (STATUS_COLOR[pedido.status] ?? "text-[#00ff41]/60") : ""}>
+                                  {statusLabel(pedido.status).toUpperCase()}
+                                </span>
+                              </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="rounded-none">
-                              {(Object.keys(ROLES) as Role[]).map((role) => (
-                                <SelectItem key={role} value={role} className="rounded-none">
-                                  {ROLES[role]}
+                            <SelectContent className={matrixMode ? "rounded-none border-[#00ff41]/40 bg-black font-mono" : "rounded-none"}>
+                              {(Object.keys(STATUS) as StatusKey[]).map((key) => (
+                                <SelectItem key={key} value={key} className={matrixMode ? "rounded-none text-[10px] uppercase text-[#00ff41] focus:bg-[#00ff41]/10 focus:text-[#00ff41]" : "rounded-none text-[10px] uppercase"}>
+                                  {STATUS[key].toUpperCase()}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                        <td className={mx.td + " text-right"}>
+                          {podeExcluir(pedido) ? (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button type="button" className={mx.btn + " text-red-500 border-red-500/40 hover:border-red-500 hover:bg-red-500/10 hover:text-red-500"}>
+                                  {matrixMode ? "rm" : "Excluir"}
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className={matrixMode ? "rounded-none border-[#00ff41]/40 bg-black font-mono text-[#00ff41]" : ""}>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className={matrixMode ? "text-[#00ff41] font-mono" : ""}>{matrixMode ? "// CONFIRM DELETE" : "Confirmar exclusão"}</AlertDialogTitle>
+                                  <AlertDialogDescription className={matrixMode ? "text-[#00ff41]/60 font-mono text-[11px]" : "text-[11px]"}>
+                                    Pedido de {pedido.nome_cliente ?? "cliente"} ({formatarPreco(pedido.total_centavos)}) será removido permanentemente.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className={matrixMode ? "rounded-none border-[#00ff41]/40 bg-black font-mono text-[10px] uppercase text-[#00ff41] hover:bg-[#00ff41]/10" : "rounded-none"}>
+                                    {matrixMode ? "abort" : "Cancelar"}
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => excluirPedido.mutate(pedido.id)}
+                                    className="rounded-none border border-red-500 bg-red-500/10 text-[10px] uppercase text-red-500 hover:bg-red-500/20"
+                                  >
+                                    {matrixMode ? "confirm rm" : "Excluir"}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          ) : (
+                            <span className={`text-[10px] ${mx.muted}`}>{matrixMode ? "locked" : "—"}</span>
+                          )}
+                        </td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
           </>
         )}
 
+        {/* ── PRODUTOS ── */}
         {aba === "produtos" && staff && (
           <>
-            <div className="mb-8 flex justify-end">
-              <Button
-                onClick={() => setEditando("novo")}
-                variant="outline"
-                className="rounded-none border-foreground text-xs uppercase tracking-[0.2em]"
-              >
-                Novo produto
-              </Button>
+            <div className="mb-6 flex justify-end">
+              <button type="button" onClick={() => setEditando("novo")} className={mx.btnFill}>
+                + novo produto
+              </button>
             </div>
 
-            {carregandoProdutos && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Produto</TableHead>
-                      <TableHead>Tag</TableHead>
-                      <TableHead>Preços</TableHead>
-                      <TableHead>Ordem</TableHead>
-                      <TableHead>Estoque</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.from({ length: 7 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-36 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-20 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-28 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-8 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-8 w-32 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-12 rounded-none" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Skeleton className="ml-auto h-8 w-24 rounded-none" />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-
-            {erroProdutos != null && (
-              <p className="text-sm text-destructive">Não foi possível carregar os produtos.</p>
-            )}
+            {carregandoProdutos && <MxTableSkeleton cols={7} rows={5} />}
+            {erroProdutos != null && <p className="text-[11px] text-red-500">// ERROR: cannot fetch produtos</p>}
 
             {produtos.length > 0 && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Produto</TableHead>
-                      <TableHead>Tag</TableHead>
-                      <TableHead>Preços</TableHead>
-                      <TableHead>Ordem</TableHead>
-                      <TableHead>Estoque</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="overflow-x-auto border border-[#00ff41]/20">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      {["produto", "tag", "preços", "ordem", "estoque", "status", "ações"].map((h) => (
+                        <th key={h} className={mx.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
                     {produtos.map((produto) => (
                       <ProdutoRow
                         key={produto.id}
                         produto={produto}
                         salvandoEstoque={salvarEstoque.isPending}
-                        onSalvarEstoque={(estoque) =>
-                          salvarEstoque.mutate({ id: produto.id, estoque })
-                        }
+                        onSalvarEstoque={(e) => salvarEstoque.mutate({ id: produto.id, estoque: e })}
                         alternandoAtivo={alternarAtivo.isPending}
-                        onAlternarAtivo={() =>
-                          alternarAtivo.mutate({ id: produto.id, ativo: !produto.ativo })
-                        }
+                        onAlternarAtivo={() => alternarAtivo.mutate({ id: produto.id, ativo: !produto.ativo })}
                         onEditar={() => setEditando(produto)}
                         onFotos={() => setFotosDeId(produto.id)}
                       />
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
 
@@ -565,885 +592,401 @@ function AdminPage() {
               />
             )}
 
-            {fotosDeId !== null &&
-              (() => {
-                const produto = produtos.find((p) => p.id === fotosDeId);
-                return produto ? (
-                  <FotosDialog
-                    produto={produto}
-                    onFechar={() => setFotosDeId(null)}
-                    onAtualizado={invalidarProdutos}
-                  />
-                ) : null;
-              })()}
+            {fotosDeId !== null && (() => {
+              const produto = produtos.find((p) => p.id === fotosDeId);
+              return produto ? (
+                <FotosDialog produto={produto} onFechar={() => setFotosDeId(null)} onAtualizado={invalidarProdutos} />
+              ) : null;
+            })()}
           </>
         )}
 
-        {aba === "pedidos" && (
+        {/* ── USUARIOS ── */}
+        {aba === "usuarios" && admin && (
           <>
-            <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {isLoading
-                ? Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="border border-border p-4">
-                      <Skeleton className="h-3 w-24 rounded-none" />
-                      <Skeleton className="mt-2 h-7 w-20 rounded-none" />
-                      <Skeleton className="mt-1 h-3 w-16 rounded-none" />
-                    </div>
-                  ))
-                : !error
-                  ? metricas.map((metrica) => (
-                      <div key={metrica.label} className="border border-border p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                          {metrica.label}
-                        </p>
-                        <p className="serif mt-2 text-2xl">{metrica.valor}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{metrica.nota}</p>
-                      </div>
-                    ))
-                  : null}
-            </div>
+            {carregandoUsuarios && <MxTableSkeleton cols={4} rows={5} />}
+            {erroUsuarios != null && <p className="text-[11px] text-red-500">// ERROR: cannot fetch usuarios</p>}
 
-            <div className="mb-8 flex flex-wrap gap-2">
-              {filtros.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setFiltro(f.value)}
-                  className={`border px-4 py-2 text-xs uppercase tracking-[0.2em] transition-colors ${
-                    filtro === f.value
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
-                  }`}
-                >
-                  {f.label} ({f.count})
-                </button>
-              ))}
-            </div>
-
-            {isLoading && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Itens</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Frete</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Telefone</TableHead>
-                      <TableHead>Entrega</TableHead>
-                      <TableHead>Rastreio</TableHead>
-                      <TableHead>Observações</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-28 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-40 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-16 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-20 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-24 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-28 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-36 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-8 w-36 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-20 rounded-none" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-8 w-32 rounded-none" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Skeleton className="ml-auto h-8 w-16 rounded-none" />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-
-            {error && (
-              <p className="text-sm text-destructive">Não foi possível carregar os pedidos.</p>
-            )}
-
-            {!isLoading && !error && pedidosFiltrados.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                {filtro === "todos" ? "Nenhum pedido ainda." : "Nenhum pedido com este status."}
-              </p>
-            )}
-
-            {pedidosFiltrados.length > 0 && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Itens</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Frete</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Telefone</TableHead>
-                      <TableHead>Entrega</TableHead>
-                      <TableHead>Rastreio</TableHead>
-                      <TableHead>Observações</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pedidosFiltrados.map((pedido) => (
-                      <TableRow key={pedido.id}>
-                        <TableCell>{new Date(pedido.created_at).toLocaleString("pt-BR")}</TableCell>
-                        <TableCell>
-                          <ul className="space-y-1">
-                            {pedido.itens.map((item) => (
-                              <li key={item.id} className="whitespace-nowrap">
-                                {item.quantidade}× {item.produto_nome} {item.tamanho} · {item.aroma}
-                                {item.refil ? " · com refil" : ""}
-                              </li>
-                            ))}
-                          </ul>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {formatarPreco(pedido.total_centavos)}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {pedido.frete_servico ? (
-                            <>
-                              {pedido.frete_servico}
-                              <span className="block text-xs text-muted-foreground">
-                                {pedido.frete_centavos === 0
-                                  ? "Grátis"
-                                  : formatarPreco(pedido.frete_centavos)}
-                                {pedido.frete_prazo_dias != null
-                                  ? ` · até ${pedido.frete_prazo_dias}d`
-                                  : ""}
-                              </span>
-                            </>
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {pedido.nome_cliente ?? "—"}
-                          {pedido.cpf_cnpj ? (
-                            <span className="block whitespace-nowrap text-xs text-muted-foreground">
-                              {pedido.cpf_cnpj}
-                            </span>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {pedido.telefone ?? "—"}
-                        </TableCell>
-                        <TableCell className="max-w-[280px]">
-                          {enderecoResumo(pedido) ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          <RastreioCell
-                            // Reinicia o input quando o valor salvo muda
-                            key={`${pedido.id}-${pedido.codigo_rastreio ?? ""}`}
-                            codigo={pedido.codigo_rastreio}
-                            salvando={
-                              salvarRastreio.isPending && salvarRastreio.variables?.id === pedido.id
-                            }
-                            onSalvar={(codigo) => salvarRastreio.mutate({ id: pedido.id, codigo })}
-                          />
-                        </TableCell>
-                        <TableCell>{pedido.observacoes ?? "—"}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={pedido.status}
-                            onValueChange={(status) =>
-                              atualizarStatus.mutate({ id: pedido.id, status })
-                            }
-                          >
-                            <SelectTrigger className="w-[160px] rounded-none text-xs uppercase tracking-[0.1em]">
-                              <SelectValue>{statusLabel(pedido.status)}</SelectValue>
+            {usuarios.length > 0 && (
+              <div className="overflow-x-auto border border-[#00ff41]/20">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      {["nome", "e-mail", "cadastro", "papel"].map((h) => (
+                        <th key={h} className={mx.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuarios.map((usuario) => (
+                      <tr key={usuario.id} className={mx.row}>
+                        <td className={mx.td}>{usuario.name ?? "—"}</td>
+                        <td className={mx.td}>{usuario.email}</td>
+                        <td className={mx.td + " whitespace-nowrap"}>
+                          {usuario.created_at ? new Date(usuario.created_at).toLocaleDateString("pt-BR") : "—"}
+                        </td>
+                        <td className={mx.td}>
+                          <Select value={usuario.role} onValueChange={(r) => alterarRole.mutate({ id: usuario.id, role: r as Role })}>
+                            <SelectTrigger className={matrixMode ? "w-[140px] rounded-none border-[#00ff41]/30 bg-black font-mono text-[10px] text-[#00ff41] uppercase tracking-[0.1em]" : "w-[140px] rounded-none text-[10px] uppercase"}>
+                              <SelectValue>{ROLES[usuario.role]}</SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="rounded-none">
-                              {(Object.keys(STATUS) as StatusKey[]).map((key) => (
-                                <SelectItem key={key} value={key} className="rounded-none">
-                                  {STATUS[key]}
+                            <SelectContent className={matrixMode ? "rounded-none border-[#00ff41]/40 bg-black font-mono" : "rounded-none"}>
+                              {(Object.keys(ROLES) as Role[]).map((r) => (
+                                <SelectItem key={r} value={r} className={matrixMode ? "rounded-none text-[10px] uppercase text-[#00ff41] focus:bg-[#00ff41]/10" : "rounded-none text-[10px] uppercase"}>
+                                  {ROLES[r]}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {podeExcluir(pedido) ? (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
-                                >
-                                  Excluir
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="rounded-none">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="serif">
-                                    Excluir pedido?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    O pedido de {pedido.nome_cliente ?? "cliente sem nome"} (
-                                    {formatarPreco(pedido.total_centavos)}) será removido
-                                    permanentemente.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel className="rounded-none">
-                                    Cancelar
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => excluirPedido.mutate(pedido.id)}
-                                    className="rounded-none"
-                                  >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          ) : (
-                            <span className="text-xs uppercase tracking-[0.1em] text-muted-foreground">
-                              —
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
           </>
         )}
+
+        {/* ── AUDITORIA ── */}
+        {aba === "auditoria" && admin && <AuditoriaTab />}
       </div>
     </div>
+    </MxCtx.Provider>
   );
 }
 
-const ACOES_AUDITORIA: Record<string, string> = {
-  "pedido.atualizar": "Pedido atualizado",
-  "pedido.excluir": "Pedido excluído",
-  "produto.criar": "Produto criado",
-  "produto.atualizar": "Produto atualizado",
-  "produto.estoque": "Estoque ajustado",
-  "produto.imagem.adicionar": "Foto adicionada",
-  "produto.imagem.reordenar": "Fotos reordenadas",
-  "produto.imagem.remover": "Foto removida",
-  "usuario.role": "Papel alterado",
-  "pix.webhook.registrar": "Webhook PIX registrado",
-};
+// ─── skeleton ─────────────────────────────────────────────────────────────────
+
+function MxTableSkeleton({ cols, rows }: { cols: number; rows: number }) {
+  const mx = useMx();
+  const isMatrix = mx === MX_MATRIX;
+  const borderColor = isMatrix ? "border-[#00ff41]/20" : "border-border";
+  const bg1 = isMatrix ? "bg-[#00ff41]/10" : "bg-muted";
+  const bg2 = isMatrix ? "bg-[#00ff41]/5" : "bg-muted/50";
+  return (
+    <div className={`border ${borderColor} overflow-hidden`}>
+      <div className={`border-b ${borderColor} flex gap-4 px-4 py-3`}>
+        {Array.from({ length: cols }).map((_, i) => (
+          <div key={i} className={`h-2 flex-1 ${bg1} animate-pulse`} />
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className={`flex gap-4 border-b ${borderColor} px-4 py-3`}>
+          {Array.from({ length: cols }).map((_, j) => (
+            <div key={j} className={`h-3 flex-1 ${bg2} animate-pulse`} style={{ animationDelay: `${(i + j) * 50}ms` }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── auditoria tab ────────────────────────────────────────────────────────────
 
 function AuditoriaTab() {
-  const {
-    data: eventos = [],
-    isLoading,
-    error,
-  } = useQuery<EventoAuditoria[]>({
-    queryKey: ["auditoria"],
-    queryFn: () => apiFetch("/admin/auditoria"),
+  const mx = useMx();
+  const { data: eventos = [], isLoading, error } = useQuery<EventoAuditoria[]>({
+    queryKey: ["auditoria"], queryFn: () => apiFetch("/admin/auditoria"),
   });
 
+  if (isLoading) return <MxTableSkeleton cols={5} rows={8} />;
+  if (error != null) return <p className="text-[11px] text-red-500">// ERROR: audit_log migration applied?</p>;
+  if (eventos.length === 0) return <p className={`text-[11px] ${mx.muted}`}>// RESULT: 0 events logged</p>;
+
   return (
-    <>
-      {isLoading && (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Ação</TableHead>
-                <TableHead>Alvo</TableHead>
-                <TableHead>Detalhes</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <Skeleton className="h-4 w-28 rounded-none" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-40 rounded-none" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32 rounded-none" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24 rounded-none" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-48 rounded-none" />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {error != null && (
-        <p className="text-sm text-destructive">
-          Não foi possível carregar a auditoria (a migration do audit_log já foi aplicada?).
-        </p>
-      )}
-
-      {!isLoading && error == null && eventos.length === 0 && (
-        <p className="text-sm text-muted-foreground">Nenhuma ação registrada ainda.</p>
-      )}
-
-      {eventos.length > 0 && (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Ação</TableHead>
-                <TableHead>Alvo</TableHead>
-                <TableHead>Detalhes</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {eventos.map((evento) => (
-                <TableRow key={evento.id}>
-                  <TableCell className="whitespace-nowrap">
-                    {new Date(evento.created_at).toLocaleString("pt-BR")}
-                  </TableCell>
-                  <TableCell>{evento.user_email ?? "—"}</TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {ACOES_AUDITORIA[evento.acao] ?? evento.acao}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {evento.alvo_tipo}
-                    {evento.alvo_id ? (
-                      <span className="block text-xs text-muted-foreground">
-                        {evento.alvo_id.slice(0, 8)}…
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="max-w-[360px]">
-                    {evento.detalhes ? (
-                      <code className="block break-all text-xs text-muted-foreground">
-                        {JSON.stringify(evento.detalhes)}
-                      </code>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </>
+    <div className="overflow-x-auto border border-[#00ff41]/20">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr>
+            {["timestamp", "user", "action", "target", "details"].map((h) => (
+              <th key={h} className={mx.th}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {eventos.map((evento) => (
+            <tr key={evento.id} className={mx.row}>
+              <td className={mx.td + " whitespace-nowrap"}>{new Date(evento.created_at).toLocaleString("pt-BR")}</td>
+              <td className={mx.td}>{evento.user_email ?? "—"}</td>
+              <td className={mx.td + " whitespace-nowrap font-semibold"}>{ACOES_AUDITORIA[evento.acao] ?? evento.acao}</td>
+              <td className={mx.td + " whitespace-nowrap"}>
+                {evento.alvo_tipo}
+                {evento.alvo_id && <span className={`block text-[10px] ${mx.muted}`}>{evento.alvo_id.slice(0, 8)}…</span>}
+              </td>
+              <td className={mx.td + " max-w-[320px]"}>
+                {evento.detalhes ? (
+                  <code className={`block break-all text-[10px] ${mx.muted}`}>
+                    {JSON.stringify(evento.detalhes)}
+                  </code>
+                ) : "—"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
-function RastreioCell({
-  codigo,
-  salvando,
-  onSalvar,
-}: {
-  codigo: string | null;
-  salvando: boolean;
-  onSalvar: (codigo: string) => void;
-}) {
+// ─── rastreio cell ────────────────────────────────────────────────────────────
+
+function RastreioCell({ codigo, salvando, onSalvar }: { codigo: string | null; salvando: boolean; onSalvar: (c: string) => void }) {
+  const mx = useMx();
   const [valor, setValor] = useState(codigo ?? "");
   const alterado = valor.trim() !== (codigo ?? "");
+
   return (
     <div className="flex items-center gap-2">
-      <Input
+      <MxInput
         value={valor}
         onChange={(e) => setValor(e.target.value)}
-        placeholder="Código"
-        className="h-8 w-[150px] rounded-none text-xs"
+        placeholder="código…"
+        className="w-[130px] text-[10px]"
       />
       {alterado && (
-        <Button
-          size="sm"
-          disabled={salvando}
-          onClick={() => onSalvar(valor.trim())}
-          className="rounded-none text-xs uppercase tracking-[0.1em]"
-        >
-          {salvando ? "…" : "Salvar"}
-        </Button>
+        <button type="button" disabled={salvando} onClick={() => onSalvar(valor.trim())} className={mx.btnFill + " py-1 px-2"}>
+          {salvando ? "…" : "save"}
+        </button>
       )}
     </div>
   );
 }
 
-function ProdutoRow({
-  produto,
-  salvandoEstoque,
-  onSalvarEstoque,
-  alternandoAtivo,
-  onAlternarAtivo,
-  onEditar,
-  onFotos,
-}: {
-  produto: Produto;
-  salvandoEstoque: boolean;
-  onSalvarEstoque: (estoque: number) => void;
-  alternandoAtivo: boolean;
-  onAlternarAtivo: () => void;
-  onEditar: () => void;
-  onFotos: () => void;
+// ─── produto row ──────────────────────────────────────────────────────────────
+
+function ProdutoRow({ produto, salvandoEstoque, onSalvarEstoque, alternandoAtivo, onAlternarAtivo, onEditar, onFotos }: {
+  produto: Produto; salvandoEstoque: boolean; onSalvarEstoque: (e: number) => void;
+  alternandoAtivo: boolean; onAlternarAtivo: () => void; onEditar: () => void; onFotos: () => void;
 }) {
+  const mx = useMx();
+  const isMatrix = mx === MX_MATRIX;
   const [valor, setValor] = useState(String(produto.estoque));
-
-  useEffect(() => {
-    setValor(String(produto.estoque));
-  }, [produto.estoque]);
-
+  useEffect(() => { setValor(String(produto.estoque)); }, [produto.estoque]);
   const parsed = Number.parseInt(valor, 10);
   const valido = Number.isInteger(parsed) && parsed >= 0;
   const alterado = valido && parsed !== produto.estoque;
 
   return (
-    <TableRow className={produto.ativo ? undefined : "opacity-50"}>
-      <TableCell>{produto.nome}</TableCell>
-      <TableCell>{produto.tag ?? "—"}</TableCell>
-      <TableCell>
-        <ul className="space-y-1">
-          {produto.tamanhos.map((tamanho) => (
-            <li key={tamanho} className="whitespace-nowrap">
-              {tamanho} ·{" "}
-              {produto.precos[tamanho] !== undefined
-                ? formatarPreco(produto.precos[tamanho])
-                : "sem preço"}
-            </li>
-          ))}
-        </ul>
-      </TableCell>
-      <TableCell>{produto.ordem}</TableCell>
-      <TableCell>
-        <div className="flex items-center gap-3">
-          <Input
-            type="number"
-            min={0}
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            className="w-24 rounded-none"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!alterado || salvandoEstoque}
-            onClick={() => onSalvarEstoque(parsed)}
-            className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
-          >
-            Salvar
-          </Button>
-          {produto.estoque === 0 && (
-            <span className="text-xs uppercase tracking-[0.1em] text-destructive">Esgotado</span>
-          )}
+    <tr className={`${mx.row} ${produto.ativo ? "" : "opacity-40"}`}>
+      <td className={mx.td}>{produto.nome}</td>
+      <td className={`${mx.td} ${mx.muted}`}>{produto.tag ?? "—"}</td>
+      <td className={mx.td}>
+        {produto.tamanhos.map((t) => (
+          <div key={t} className="whitespace-nowrap text-[10px]">
+            {t} · {produto.precos[t] !== undefined ? formatarPreco(produto.precos[t]) : <span className="text-red-500">sem preço</span>}
+          </div>
+        ))}
+      </td>
+      <td className={`${mx.td} ${mx.muted}`}>{produto.ordem}</td>
+      <td className={mx.td}>
+        <div className="flex items-center gap-2">
+          <MxInput type="number" min={0} value={valor} onChange={(e) => setValor(e.target.value)} className="w-20 text-[11px]" />
+          <button type="button" disabled={!alterado || salvandoEstoque} onClick={() => onSalvarEstoque(parsed)} className={mx.btn + " py-1 px-2"}>
+            {salvandoEstoque ? "…" : "save"}
+          </button>
+          {produto.estoque === 0 && <span className="text-[10px] text-red-500">ESGOTADO</span>}
         </div>
-      </TableCell>
-      <TableCell>
-        <span
-          className={`text-xs uppercase tracking-[0.1em] ${
-            produto.ativo ? "text-foreground" : "text-muted-foreground"
-          }`}
-        >
-          {produto.ativo ? "Ativo" : "Inativo"}
+      </td>
+      <td className={mx.td}>
+        <span className={produto.ativo ? (isMatrix ? "text-[#00ff41]" : "text-green-600") : mx.muted}>
+          {produto.ativo ? "● ATIVO" : "○ INATIVO"}
         </span>
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onEditar}
-            className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
-          >
-            Editar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onFotos}
-            className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
-          >
-            Fotos
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={alternandoAtivo}
-            onClick={onAlternarAtivo}
-            className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
-          >
-            {produto.ativo ? "Desativar" : "Reativar"}
-          </Button>
+      </td>
+      <td className={mx.td}>
+        <div className="flex gap-2 justify-end">
+          <button type="button" onClick={onEditar} className={mx.btn + " py-1 px-2"}>edit</button>
+          <button type="button" onClick={onFotos} className={mx.btn + " py-1 px-2"}>imgs</button>
+          <button type="button" disabled={alternandoAtivo} onClick={onAlternarAtivo} className={mx.btn + " py-1 px-2"}>
+            {produto.ativo ? "deact" : "act"}
+          </button>
         </div>
-      </TableCell>
-    </TableRow>
+      </td>
+    </tr>
   );
 }
 
+// ─── produto dialog ───────────────────────────────────────────────────────────
+
 type LinhaPreco = { tamanho: string; preco: string };
 
-function ProdutoDialog({
-  produto,
-  onFechar,
-  onSalvo,
-}: {
-  produto: Produto | null;
-  onFechar: () => void;
-  onSalvo: () => void;
-}) {
+function ProdutoDialog({ produto, onFechar, onSalvo }: { produto: Produto | null; onFechar: () => void; onSalvo: () => void }) {
+  const mx = useMx();
   const [nome, setNome] = useState(produto?.nome ?? "");
   const [tag, setTag] = useState(produto?.tag ?? "");
   const [descricao, setDescricao] = useState(produto?.descricao ?? "");
   const [ordem, setOrdem] = useState(String(produto?.ordem ?? 0));
   const [linhas, setLinhas] = useState<LinhaPreco[]>(
-    produto
-      ? produto.tamanhos.map((tamanho) => ({
-          tamanho,
-          preco:
-            produto.precos[tamanho] !== undefined ? precoParaInput(produto.precos[tamanho]) : "",
-        }))
+    produto ? produto.tamanhos.map((t) => ({ tamanho: t, preco: produto.precos[t] !== undefined ? precoParaInput(produto.precos[t]) : "" }))
       : [{ tamanho: "", preco: "" }],
   );
 
   const salvar = useMutation({
     mutationFn: (payload: object) =>
       produto
-        ? apiFetch(`/produtos/${produto.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          })
-        : apiFetch("/produtos", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          }),
-    onSuccess: () => {
-      onSalvo();
-      onFechar();
-    },
+        ? apiFetch(`/produtos/${produto.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+        : apiFetch("/produtos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
+    onSuccess: () => { onSalvo(); onFechar(); },
   });
 
-  const setLinha = (indice: number, campo: keyof LinhaPreco, valor: string) =>
-    setLinhas((atual) =>
-      atual.map((linha, i) => (i === indice ? { ...linha, [campo]: valor } : linha)),
-    );
+  const setLinha = (i: number, campo: keyof LinhaPreco, v: string) =>
+    setLinhas((cur) => cur.map((l, idx) => (idx === i ? { ...l, [campo]: v } : l)));
 
-  const tamanhos = linhas.map((linha) => linha.tamanho.trim());
-  const nomeValido = nome.trim().length > 0;
-  const ordemValida = Number.isInteger(Number.parseInt(ordem, 10));
-  const linhasValidas =
-    linhas.length > 0 &&
-    linhas.every((linha) => linha.tamanho.trim() && parsePrecoReais(linha.preco) !== null);
-  const tamanhosUnicos = new Set(tamanhos).size === tamanhos.length;
-  const podeSalvar = nomeValido && ordemValida && linhasValidas && tamanhosUnicos;
-
-  const renomeando = produto !== null && nome.trim() !== produto.nome;
+  const tamanhos = linhas.map((l) => l.tamanho.trim());
+  const podeSalvar = nome.trim().length > 0 &&
+    Number.isInteger(Number.parseInt(ordem, 10)) &&
+    linhas.length > 0 && linhas.every((l) => l.tamanho.trim() && parsePrecoReais(l.preco) !== null) &&
+    new Set(tamanhos).size === tamanhos.length;
 
   const handleSalvar = () => {
     const precos: Record<string, number> = {};
-    for (const linha of linhas) {
-      precos[linha.tamanho.trim()] = parsePrecoReais(linha.preco)!;
-    }
-    salvar.mutate({
-      nome: nome.trim(),
-      tag: tag.trim() || null,
-      descricao: descricao.trim() || null,
-      ordem: Number.parseInt(ordem, 10),
-      tamanhos,
-      precos,
-    });
+    for (const l of linhas) precos[l.tamanho.trim()] = parsePrecoReais(l.preco)!;
+    salvar.mutate({ nome: nome.trim(), tag: tag.trim() || null, descricao: descricao.trim() || null, ordem: Number.parseInt(ordem, 10), tamanhos, precos });
   };
 
-  const erroSalvar =
-    salvar.error instanceof ApiError && salvar.error.detail
-      ? salvar.error.detail
-      : salvar.error
-        ? "Não foi possível salvar o produto."
-        : null;
+  const erroSalvar = salvar.error instanceof ApiError && salvar.error.detail ? salvar.error.detail
+    : salvar.error ? "// ERROR: save failed" : null;
+
+  const isMatrix = mx === MX_MATRIX;
+  const dlgContent = isMatrix ? "max-h-[90vh] overflow-y-auto rounded-none border-[#00ff41]/40 bg-black font-mono text-[#00ff41] sm:max-w-lg" : "max-h-[90vh] overflow-y-auto sm:max-w-lg";
+  const dlgTitle = isMatrix ? "font-mono text-[#00ff41]" : "";
+  const dlgDesc = isMatrix ? "font-mono text-[11px] text-[#00ff41]/50" : "text-[11px]";
 
   return (
     <Dialog open onOpenChange={(open) => !open && onFechar()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-none sm:max-w-lg">
+      <DialogContent className={dlgContent}>
         <DialogHeader>
-          <DialogTitle className="serif">
-            {produto ? `Editar ${produto.nome}` : "Novo produto"}
+          <DialogTitle className={dlgTitle}>
+            {produto ? `Editar: ${produto.nome}` : "Novo produto"}
           </DialogTitle>
-          <DialogDescription>
-            Preços em reais, por tamanho. O produto aparece na loja quando está ativo e tem preço
-            definido.
+          <DialogDescription className={dlgDesc}>
+            Preços em R$ por tamanho. Produto aparece quando ativo e com preço.
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="produto-nome">Nome</Label>
-            <Input
-              id="produto-nome"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="rounded-none"
-            />
-            {renomeando && (
-              <p className="text-xs text-muted-foreground">
-                Renomear não altera pedidos antigos, mas itens salvos em carrinhos com o nome
-                anterior deixam de ser reconhecidos, e a foto do produto (mapeada por nome no site)
-                precisa ser reapontada.
-              </p>
-            )}
+          <div className="space-y-1">
+            <label className={mx.label}>nome</label>
+            <MxInput value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="produto-tag">Tag</Label>
-              <Input
-                id="produto-tag"
-                value={tag}
-                onChange={(e) => setTag(e.target.value)}
-                placeholder="Ex.: Mais vendido"
-                className="rounded-none"
-              />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className={mx.label}>tag</label>
+              <MxInput value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Mais vendido" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="produto-ordem">Ordem na vitrine</Label>
-              <Input
-                id="produto-ordem"
-                type="number"
-                value={ordem}
-                onChange={(e) => setOrdem(e.target.value)}
-                className="rounded-none"
-              />
+            <div className="space-y-1">
+              <label className={mx.label}>ordem</label>
+              <MxInput type="number" value={ordem} onChange={(e) => setOrdem(e.target.value)} />
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="produto-descricao">Descrição</Label>
-            <Textarea
-              id="produto-descricao"
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              className="rounded-none"
-            />
+          <div className="space-y-1">
+            <label className={mx.label}>descrição</label>
+            <MxTextarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} />
           </div>
-
           <div className="space-y-2">
-            <Label>Tamanhos e preços</Label>
-            {linhas.map((linha, indice) => (
-              <div key={indice} className="flex items-center gap-2">
-                <Input
-                  value={linha.tamanho}
-                  onChange={(e) => setLinha(indice, "tamanho", e.target.value)}
-                  placeholder="250ml"
-                  className="w-28 rounded-none"
-                />
-                <span className="text-sm text-muted-foreground">R$</span>
-                <Input
-                  value={linha.preco}
-                  onChange={(e) => setLinha(indice, "preco", e.target.value)}
-                  placeholder="79,90"
-                  className="w-28 rounded-none"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={linhas.length === 1}
-                  onClick={() => setLinhas((atual) => atual.filter((_, i) => i !== indice))}
-                  className="rounded-none text-xs uppercase tracking-[0.1em]"
-                >
-                  Remover
-                </Button>
+            <label className={mx.label}>tamanhos + preços</label>
+            {linhas.map((linha, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <MxInput value={linha.tamanho} onChange={(e) => setLinha(i, "tamanho", e.target.value)} placeholder="250ml" className="w-24" />
+                <span className={`text-[11px] ${mx.muted}`}>R$</span>
+                <MxInput value={linha.preco} onChange={(e) => setLinha(i, "preco", e.target.value)} placeholder="79,90" className="w-24" />
+                <button type="button" disabled={linhas.length === 1} onClick={() => setLinhas((cur) => cur.filter((_, idx) => idx !== i))} className={mx.btn + " py-1 px-2"}>
+                  rm
+                </button>
               </div>
             ))}
-            {!tamanhosUnicos && <p className="text-xs text-destructive">Há tamanhos duplicados.</p>}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLinhas((atual) => [...atual, { tamanho: "", preco: "" }])}
-              className="rounded-none text-xs uppercase tracking-[0.1em]"
-            >
-              Adicionar tamanho
-            </Button>
+            {new Set(tamanhos).size !== tamanhos.length && <p className="text-[11px] text-red-500">// duplicate tamanhos</p>}
+            <button type="button" onClick={() => setLinhas((cur) => [...cur, { tamanho: "", preco: "" }])} className={mx.btn + " py-1 px-3"}>
+              + tamanho
+            </button>
           </div>
-
-          {erroSalvar && <p className="text-sm text-destructive">{erroSalvar}</p>}
+          {erroSalvar && <p className="text-[11px] text-red-500">{erroSalvar}</p>}
         </div>
-
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={onFechar}
-            className="rounded-none text-xs uppercase tracking-[0.2em]"
-          >
-            Cancelar
-          </Button>
-          <Button
-            disabled={!podeSalvar || salvar.isPending}
-            onClick={handleSalvar}
-            className="rounded-none text-xs uppercase tracking-[0.2em]"
-          >
-            {salvar.isPending ? "Salvando…" : "Salvar"}
-          </Button>
+          <button type="button" onClick={onFechar} className={mx.btn}>{isMatrix ? "abort" : "Cancelar"}</button>
+          <button type="button" disabled={!podeSalvar || salvar.isPending} onClick={handleSalvar} className={mx.btnFill}>
+            {salvar.isPending ? (isMatrix ? "saving…" : "Salvando…") : (isMatrix ? "save" : "Salvar")}
+          </button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-function FotosDialog({
-  produto,
-  onFechar,
-  onAtualizado,
-}: {
-  produto: Produto;
-  onFechar: () => void;
-  onAtualizado: () => void;
-}) {
+// ─── fotos dialog ─────────────────────────────────────────────────────────────
+
+function FotosDialog({ produto, onFechar, onAtualizado }: { produto: Produto; onFechar: () => void; onAtualizado: () => void }) {
+  const mx = useMx();
   const imagens = produto.imagens ?? [];
 
   const enviar = useMutation({
     mutationFn: (file: File) => {
-      const form = new FormData();
-      form.append("file", file);
+      const form = new FormData(); form.append("file", file);
       return apiFetch(`/produtos/${produto.id}/imagens`, { method: "POST", body: form });
     },
     onSuccess: onAtualizado,
   });
 
   const remover = useMutation({
-    mutationFn: (url: string) =>
-      apiFetch(`/produtos/${produto.id}/imagens`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      }),
+    mutationFn: (url: string) => apiFetch(`/produtos/${produto.id}/imagens`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) }),
     onSuccess: onAtualizado,
   });
 
   const tornarPrincipal = useMutation({
-    mutationFn: (url: string) =>
-      apiFetch(`/produtos/${produto.id}/imagens`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagens: [url, ...imagens.filter((i) => i !== url)] }),
-      }),
+    mutationFn: (url: string) => apiFetch(`/produtos/${produto.id}/imagens`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imagens: [url, ...imagens.filter((i) => i !== url)] }) }),
     onSuccess: onAtualizado,
   });
 
   const erro = [enviar.error, remover.error, tornarPrincipal.error]
-    .map((e) =>
-      e instanceof ApiError && e.detail
-        ? e.detail
-        : e
-          ? "Não foi possível salvar a alteração."
-          : null,
-    )
-    .find((mensagem) => mensagem !== null);
+    .map((e) => e instanceof ApiError && e.detail ? e.detail : e ? "// ERROR: save failed" : null)
+    .find((m) => m !== null);
+
+  const isMatrix = mx === MX_MATRIX;
+  const dlgContent = isMatrix ? "max-h-[90vh] overflow-y-auto rounded-none border-[#00ff41]/40 bg-black font-mono text-[#00ff41] sm:max-w-lg" : "max-h-[90vh] overflow-y-auto sm:max-w-lg";
 
   return (
     <Dialog open onOpenChange={(open) => !open && onFechar()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-none sm:max-w-lg">
+      <DialogContent className={dlgContent}>
         <DialogHeader>
-          <DialogTitle className="serif">Fotos de {produto.nome}</DialogTitle>
-          <DialogDescription>
-            A primeira foto é a principal, exibida na vitrine. Enquanto o produto não tiver fotos
-            enviadas, o site usa as fotos embutidas (quando existem para este produto).
+          <DialogTitle className={isMatrix ? "font-mono text-[#00ff41]" : ""}>
+            {isMatrix ? `// imgs: ${produto.nome}` : `Imagens: ${produto.nome}`}
+          </DialogTitle>
+          <DialogDescription className={isMatrix ? "font-mono text-[11px] text-[#00ff41]/50" : "text-[11px]"}>
+            {isMatrix ? "primeira imagem = principal. sem fotos enviadas, usa fotos embutidas." : "Primeira imagem é a principal. Sem fotos enviadas, usa fotos embutidas."}
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4">
-          {imagens.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nenhuma foto enviada ainda.</p>
-          )}
-
+        <div className="space-y-3">
+          {imagens.length === 0 && <p className={`text-[11px] ${mx.muted}`}>{isMatrix ? "// 0 imagens" : "Nenhuma imagem enviada."}</p>}
           {imagens.map((url, i) => (
-            <div key={url} className="flex items-center gap-3 border border-border p-2">
-              <img
-                src={url}
-                alt={`Foto ${i + 1} de ${produto.nome}`}
-                width={128}
-                height={128}
-                loading="lazy"
-                className="h-16 w-16 bg-secondary object-cover"
-              />
-              <span className="flex-1 text-xs uppercase tracking-[0.1em] text-muted-foreground">
-                {i === 0 ? "Principal" : `Foto ${i + 1}`}
-              </span>
+            <div key={url} className={`flex items-center gap-3 border p-2 transition-colors ${isMatrix ? "border-[#00ff41]/20 hover:border-[#00ff41]/40" : "border-border hover:border-foreground/30"}`}>
+              <img src={url} alt={`img ${i + 1}`} width={64} height={64} loading="lazy" className={`h-12 w-12 object-cover ${isMatrix ? "bg-[#00ff41]/5" : "bg-muted"}`} />
+              <span className={`flex-1 text-[10px] ${mx.muted}`}>{i === 0 ? (isMatrix ? "[PRINCIPAL]" : "Principal") : `img ${i + 1}`}</span>
               {i > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={tornarPrincipal.isPending}
-                  onClick={() => tornarPrincipal.mutate(url)}
-                  className="rounded-none text-xs uppercase tracking-[0.1em]"
-                >
-                  Tornar principal
-                </Button>
+                <button type="button" disabled={tornarPrincipal.isPending} onClick={() => tornarPrincipal.mutate(url)} className={mx.btn + " py-1 px-2"}>
+                  {isMatrix ? "set main" : "Principal"}
+                </button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={remover.isPending}
-                onClick={() => remover.mutate(url)}
-                className="rounded-none border-foreground text-xs uppercase tracking-[0.1em]"
-              >
-                Remover
-              </Button>
+              <button type="button" disabled={remover.isPending} onClick={() => remover.mutate(url)} className={mx.btn + " py-1 px-2 text-red-500 border-red-500/40 hover:border-red-500 hover:bg-red-500/10"}>
+                rm
+              </button>
             </div>
           ))}
-
-          <div className="space-y-2">
-            <Label htmlFor="foto-upload">Enviar nova foto (JPG, PNG ou WebP, até 5MB)</Label>
-            <Input
-              id="foto-upload"
+          <div className="space-y-1">
+            <label className={mx.label}>upload (jpg/png/webp · max 5mb)</label>
+            <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
               disabled={enviar.isPending}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) enviar.mutate(file);
-                e.target.value = "";
-              }}
-              className="rounded-none"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) enviar.mutate(f); e.target.value = ""; }}
+              className={isMatrix
+                ? "w-full bg-black text-[11px] text-[#00ff41] file:mr-3 file:border file:border-[#00ff41]/40 file:bg-black file:px-3 file:py-1 file:text-[10px] file:font-mono file:uppercase file:text-[#00ff41] file:hover:bg-[#00ff41]/10"
+                : "w-full text-[11px] text-foreground file:mr-3 file:border file:border-border file:bg-background file:px-3 file:py-1 file:text-[10px] file:uppercase file:text-foreground file:hover:bg-secondary"}
             />
-            {enviar.isPending && <p className="text-sm text-muted-foreground">Enviando…</p>}
+            {enviar.isPending && <p className={`text-[11px] ${mx.muted}`}>uploading…</p>}
           </div>
-
-          {erro && <p className="text-sm text-destructive">{erro}</p>}
+          {erro && <p className="text-[11px] text-red-500">{erro}</p>}
         </div>
-
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={onFechar}
-            className="rounded-none text-xs uppercase tracking-[0.2em]"
-          >
-            Fechar
-          </Button>
+          <button type="button" onClick={onFechar} className={mx.btn}>fechar</button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

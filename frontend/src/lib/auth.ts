@@ -42,6 +42,17 @@ export function isAuthenticated(): boolean {
   return !!getToken();
 }
 
+export function getUserEmail(): string | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return (payload.email as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function logout(): Promise<void> {
   try {
     await apiFetch("/auth/logout", { method: "POST" });

@@ -212,7 +212,27 @@
   to   { transform: scaleX(1); }
 }
 
+@keyframes matrix-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes matrix-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.8; }
+  94% { opacity: 1; }
+  96% { opacity: 0.9; }
+  97% { opacity: 1; }
+}
+
 @layer utilities {
+  .animate-matrix-blink {
+    animation: matrix-blink 1s step-end infinite;
+  }
+  .animate-matrix-flicker {
+    animation: matrix-flicker 8s ease-in-out infinite;
+  }
   .animate-fade-up {
     animation: fade-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
