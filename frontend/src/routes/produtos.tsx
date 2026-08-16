@@ -98,10 +98,10 @@ function ProdutosPage() {
                         <button
                           key={c.nome}
                           onClick={() => setCategoria(valor)}
-                          className={`border px-4 py-2 text-xs uppercase tracking-[0.2em] transition-colors ${
+                          className={`border px-4 py-2 text-xs uppercase tracking-[0.2em] transition-all duration-300 ${
                             ativo
                               ? "border-foreground bg-foreground text-background"
-                              : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                              : "border-border text-muted-foreground hover:border-foreground hover:bg-foreground/5 hover:text-foreground"
                           }`}
                         >
                           {c.nome}
@@ -130,7 +130,7 @@ function ProdutosPage() {
                     const fotos = imagensDoProduto(p);
                     const precoInicial = menorPreco(p.precos);
                     return (
-                      <Reveal key={p.id} delay={i * 100} className="bg-background">
+                      <Reveal key={p.id} delay={i * 100} className="bg-background transition-colors duration-300 hover:bg-secondary/60">
                         <article className="group flex h-full flex-col p-6">
                           <Link to="/produto/$slug" params={{ slug: slugify(p.nome) }}>
                             <div className="relative overflow-hidden bg-secondary">
@@ -191,7 +191,7 @@ function ProdutosPage() {
                             <Link
                               to="/produto/$slug"
                               params={{ slug: slugify(p.nome) }}
-                              className="mt-6 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-muted-foreground transition-colors group-hover:text-foreground"
+                              className="mt-6 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-muted-foreground transition-all duration-300 group-hover:text-foreground"
                             >
                               Ver produto
                               <span className="h-px w-6 bg-current transition-all duration-300 group-hover:w-10" />

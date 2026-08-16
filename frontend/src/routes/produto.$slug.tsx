@@ -112,7 +112,7 @@ function ProdutoPage() {
                       type="button"
                       onClick={() => setFotoIdx(i)}
                       aria-label={`Foto ${i + 1} de ${produto.nome}`}
-                      className={`h-16 w-16 overflow-hidden border transition-colors ${
+                      className={`h-16 w-16 overflow-hidden border transition-all duration-300 ${
                         i === fotoIdx
                           ? "border-foreground"
                           : "border-border opacity-60 hover:opacity-100"

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -200,7 +201,7 @@ export function CompraProduto({
         </Button>
       )}
 
-      {addedCarrinho && (
+      {addedCarrinho && typeof document !== "undefined" && createPortal(
         <div
           className="animate-backdrop-in fixed inset-0 z-50 flex items-end justify-center bg-foreground/50 backdrop-blur-sm md:items-center"
           onClick={() => setAddedCarrinho(false)}
@@ -277,7 +278,8 @@ export function CompraProduto({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
