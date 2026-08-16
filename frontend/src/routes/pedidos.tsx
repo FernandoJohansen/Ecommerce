@@ -212,17 +212,24 @@ function PedidoCard({ pedido }: { pedido: Pedido }) {
           </div>
         </div>
 
-        {/* Item preview when collapsed */}
-        {!expandido && (
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            {pedido.itens.map((item) => `${item.produto_nome} ${item.tamanho}`).join(" · ")}
-          </p>
-        )}
+        {/* Item preview — fades out when expanding */}
+        <p
+          className="mt-2 text-[11px] text-muted-foreground transition-all duration-300"
+          style={{ opacity: expandido ? 0 : 1, maxHeight: expandido ? 0 : "2rem", overflow: "hidden" }}
+        >
+          {pedido.itens.map((item) => `${item.produto_nome} ${item.tamanho}`).join(" · ")}
+        </p>
       </button>
 
-      {/* Expanded detail */}
-      {expandido && (
-        <div className="border-t border-border px-8 pb-8 pt-6 space-y-6">
+      {/* Expanded detail — animated via grid-rows */}
+      <div
+        className="grid transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        style={{ gridTemplateRows: expandido ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden">
+        <div className="border-t border-border px-8 pb-8 pt-6 space-y-6"
+          style={{ opacity: expandido ? 1 : 0, transition: "opacity 0.35s ease 0.1s" }}
+        >
 
           {/* Items */}
           <ul className="space-y-3">
@@ -310,7 +317,8 @@ function PedidoCard({ pedido }: { pedido: Pedido }) {
             )}
           </div>
         </div>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
