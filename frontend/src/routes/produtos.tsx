@@ -91,23 +91,25 @@ function ProdutosPage() {
               <>
                 <Reveal className="mb-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                   <div className="flex flex-wrap gap-2">
-                    {[{ nome: "Todos", total_produtos: catalogo.length }, ...categorias].map((c) => {
-                      const valor = c.nome === "Todos" ? null : c.nome;
-                      const ativo = categoria === valor;
-                      return (
-                        <button
-                          key={c.nome}
-                          onClick={() => setCategoria(valor)}
-                          className={`border px-4 py-2 text-xs uppercase tracking-[0.2em] transition-all duration-300 ${
-                            ativo
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-border text-muted-foreground hover:border-foreground hover:bg-foreground/5 hover:text-foreground"
-                          }`}
-                        >
-                          {c.nome}
-                        </button>
-                      );
-                    })}
+                    {[{ nome: "Todos", total_produtos: catalogo.length }, ...categorias].map(
+                      (c) => {
+                        const valor = c.nome === "Todos" ? null : c.nome;
+                        const ativo = categoria === valor;
+                        return (
+                          <button
+                            key={c.nome}
+                            onClick={() => setCategoria(valor)}
+                            className={`border px-4 py-2 text-xs uppercase tracking-[0.2em] transition-all duration-300 ${
+                              ativo
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border text-muted-foreground hover:border-foreground hover:bg-foreground/5 hover:text-foreground"
+                            }`}
+                          >
+                            {c.nome}
+                          </button>
+                        );
+                      },
+                    )}
                   </div>
                   <input
                     type="search"
@@ -130,7 +132,11 @@ function ProdutosPage() {
                     const fotos = imagensDoProduto(p);
                     const precoInicial = menorPreco(p.precos);
                     return (
-                      <Reveal key={p.id} delay={i * 100} className="bg-background transition-colors duration-300 hover:bg-secondary/60">
+                      <Reveal
+                        key={p.id}
+                        delay={i * 100}
+                        className="bg-background transition-colors duration-300 hover:bg-secondary/60"
+                      >
                         <article className="group flex h-full flex-col p-6">
                           <Link to="/produto/$slug" params={{ slug: slugify(p.nome) }}>
                             <div className="relative overflow-hidden bg-secondary">
@@ -165,9 +171,6 @@ function ProdutosPage() {
                                   className="absolute inset-0 h-80 w-full bg-secondary object-contain opacity-0 transition-opacity duration-700 ease-out group-hover:opacity-100"
                                 />
                               )}
-                              <span className="serif absolute left-4 top-3 text-sm tracking-widest text-foreground/60">
-                                {String(i + 1).padStart(2, "0")}
-                              </span>
                             </div>
                           </Link>
                           <div className="flex flex-1 flex-col pt-6">

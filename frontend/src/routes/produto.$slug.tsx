@@ -82,85 +82,87 @@ function ProdutoPage() {
 
         {produto && (
           <>
-          <div className="grid gap-12 md:grid-cols-2">
-            <div className="space-y-3">
-              {fotoAtual ? (
-                <div className="overflow-hidden bg-secondary">
-                  <img
-                    key={fotoAtual}
-                    src={fotoAtual}
-                    srcSet={supabaseSrcSet(fotoAtual)}
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    alt={produto.nome}
-                    width={800}
-                    height={1000}
-                    className="animate-fade-up h-[28rem] w-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="flex h-[28rem] items-center justify-center bg-secondary">
-                  <span className="serif text-6xl text-foreground/20">
-                    {produto.nome.charAt(0)}
+            <div className="grid gap-12 md:grid-cols-2">
+              <div className="space-y-3">
+                {fotoAtual ? (
+                  <div className="overflow-hidden bg-secondary">
+                    <img
+                      key={fotoAtual}
+                      src={fotoAtual}
+                      srcSet={supabaseSrcSet(fotoAtual)}
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      alt={produto.nome}
+                      width={800}
+                      height={1000}
+                      className="animate-fade-up h-[28rem] w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-[28rem] items-center justify-center bg-secondary">
+                    <span className="serif text-6xl text-foreground/20">
+                      {produto.nome.charAt(0)}
+                    </span>
+                  </div>
+                )}
+                {fotos.length > 1 && (
+                  <div className="flex flex-wrap gap-2">
+                    {fotos.map((foto, i) => (
+                      <button
+                        key={foto}
+                        type="button"
+                        onClick={() => setFotoIdx(i)}
+                        aria-label={`Foto ${i + 1} de ${produto.nome}`}
+                        className={`h-16 w-16 overflow-hidden border transition-all duration-300 ${
+                          i === fotoIdx
+                            ? "border-foreground"
+                            : "border-border opacity-60 hover:opacity-100"
+                        }`}
+                      >
+                        <img
+                          src={foto}
+                          srcSet={supabaseSrcSet(foto, [128, 256])}
+                          sizes="128px"
+                          alt=""
+                          width={128}
+                          height={128}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                {produto.tag && (
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                    {produto.tag}
                   </span>
-                </div>
-              )}
-              {fotos.length > 1 && (
-                <div className="flex flex-wrap gap-2">
-                  {fotos.map((foto, i) => (
-                    <button
-                      key={foto}
-                      type="button"
-                      onClick={() => setFotoIdx(i)}
-                      aria-label={`Foto ${i + 1} de ${produto.nome}`}
-                      className={`h-16 w-16 overflow-hidden border transition-all duration-300 ${
-                        i === fotoIdx
-                          ? "border-foreground"
-                          : "border-border opacity-60 hover:opacity-100"
-                      }`}
-                    >
-                      <img
-                        src={foto}
-                        srcSet={supabaseSrcSet(foto, [128, 256])}
-                        sizes="128px"
-                        alt=""
-                        width={128}
-                        height={128}
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                )}
+                <h1 className="serif mt-2 text-4xl md:text-5xl">{produto.nome}</h1>
+                {precoInicial !== null && (
+                  <p className="mt-3 text-sm">
+                    <span className="text-muted-foreground">a partir de </span>
+                    {formatarPreco(precoInicial)}
+                  </p>
+                )}
+                {produto.descricao && (
+                  <p className="mt-5 text-muted-foreground">{produto.descricao}</p>
+                )}
+                {produto.estoque === 0 && (
+                  <p className="mt-4 text-xs uppercase tracking-[0.2em] text-destructive">
+                    Esgotado
+                  </p>
+                )}
 
-            <div>
-              {produto.tag && (
-                <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                  {produto.tag}
-                </span>
-              )}
-              <h1 className="serif mt-2 text-4xl md:text-5xl">{produto.nome}</h1>
-              {precoInicial !== null && (
-                <p className="mt-3 text-sm">
-                  <span className="text-muted-foreground">a partir de </span>
-                  {formatarPreco(precoInicial)}
-                </p>
-              )}
-              {produto.descricao && (
-                <p className="mt-5 text-muted-foreground">{produto.descricao}</p>
-              )}
-              {produto.estoque === 0 && (
-                <p className="mt-4 text-xs uppercase tracking-[0.2em] text-destructive">Esgotado</p>
-              )}
-
-              <div className="mt-8 border-t border-border pt-8">
-                <CompraProduto produto={produto} produtos={produtos} aromas={aromas} />
+                <div className="mt-8 border-t border-border pt-8">
+                  <CompraProduto produto={produto} produtos={produtos} aromas={aromas} />
+                </div>
               </div>
             </div>
-          </div>
 
-          <Avaliacoes produtoId={produto.id} />
+            <Avaliacoes produtoId={produto.id} />
           </>
         )}
       </div>

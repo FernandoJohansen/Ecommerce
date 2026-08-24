@@ -40,14 +40,14 @@ type Pedido = {
 };
 
 const statusConfig: Record<string, { dot: string; text: string }> = {
-  novo:         { dot: "bg-foreground/40",  text: "text-foreground/60"  },
-  em_andamento: { dot: "bg-yellow-500",     text: "text-yellow-700"     },
-  pago:         { dot: "bg-green-500",      text: "text-green-700"      },
-  enviado:      { dot: "bg-blue-500",       text: "text-blue-700"       },
-  concluido:    { dot: "bg-foreground",     text: "text-foreground"     },
-  cancelado:    { dot: "bg-destructive",    text: "text-destructive"    },
-  expirado:     { dot: "bg-destructive/60", text: "text-destructive/80" },
-  reembolsado:  { dot: "bg-foreground/40",  text: "text-foreground/60"  },
+  novo: { dot: "bg-foreground/40", text: "text-foreground/60" },
+  em_andamento: { dot: "bg-yellow-500", text: "text-yellow-700" },
+  pago: { dot: "bg-green-500", text: "text-green-700" },
+  enviado: { dot: "bg-blue-500", text: "text-blue-700" },
+  concluido: { dot: "bg-foreground", text: "text-foreground" },
+  cancelado: { dot: "bg-destructive", text: "text-destructive" },
+  expirado: { dot: "bg-destructive/60", text: "text-destructive/80" },
+  reembolsado: { dot: "bg-foreground/40", text: "text-foreground/60" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -74,7 +74,11 @@ function PedidosPage() {
     setChecked(true);
   }, [navigate]);
 
-  const { data: pedidos = [], isLoading, error } = useQuery<Pedido[]>({
+  const {
+    data: pedidos = [],
+    isLoading,
+    error,
+  } = useQuery<Pedido[]>({
     queryKey: ["meus-pedidos"],
     queryFn: () => apiFetch("/pedidos/meus"),
     enabled: checked,
@@ -88,7 +92,6 @@ function PedidosPage() {
       <div className="pt-24">
         <section className="min-h-[70vh] bg-background py-20">
           <div className="mx-auto max-w-4xl px-6 md:px-12">
-
             <Reveal className="mb-14">
               <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
                 Histórico
@@ -141,8 +144,20 @@ function PedidosPage() {
                   className="group inline-flex items-center gap-3 border border-foreground bg-foreground px-8 py-4 text-xs uppercase tracking-[0.3em] text-background transition-colors duration-300 hover:bg-transparent hover:text-foreground"
                 >
                   Ver coleção
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:translate-x-1">
-                    <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="transition-transform duration-300 group-hover:translate-x-1"
+                  >
+                    <path
+                      d="M3 8h10M9 4l4 4-4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </Link>
               </Reveal>
@@ -160,7 +175,8 @@ function PedidosPage() {
                 </div>
 
                 <p className="mt-8 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Pedidos feitos sem estar logado não aparecem aqui — em caso de dúvida, fale pelo WhatsApp.
+                  Pedidos feitos sem estar logado não aparecem aqui — em caso de dúvida, fale pelo
+                  WhatsApp.
                 </p>
               </>
             )}
@@ -185,7 +201,11 @@ function PedidoCard({ pedido }: { pedido: Pedido }) {
 
   const subtotal = pedido.total_centavos - pedido.frete_centavos;
   const data = pedido.created_at
-    ? new Date(pedido.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+    ? new Date(pedido.created_at).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
     : "—";
 
   return (
@@ -204,10 +224,19 @@ function PedidoCard({ pedido }: { pedido: Pedido }) {
           <div className="flex items-center gap-6">
             <span className="serif text-xl">{formatarPreco(pedido.total_centavos)}</span>
             <svg
-              width="14" height="14" viewBox="0 0 14 14" fill="none"
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
               className={`shrink-0 text-muted-foreground transition-transform duration-300 ${expandido ? "rotate-180" : ""}`}
             >
-              <path d="M2 4.5l5 5 5-5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M2 4.5l5 5 5-5"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </div>
         </div>
@@ -215,7 +244,11 @@ function PedidoCard({ pedido }: { pedido: Pedido }) {
         {/* Item preview — fades out when expanding */}
         <p
           className="mt-2 text-[11px] text-muted-foreground transition-all duration-300"
-          style={{ opacity: expandido ? 0 : 1, maxHeight: expandido ? 0 : "2rem", overflow: "hidden" }}
+          style={{
+            opacity: expandido ? 0 : 1,
+            maxHeight: expandido ? 0 : "2rem",
+            overflow: "hidden",
+          }}
         >
           {pedido.itens.map((item) => `${item.produto_nome} ${item.tamanho}`).join(" · ")}
         </p>
@@ -227,96 +260,116 @@ function PedidoCard({ pedido }: { pedido: Pedido }) {
         style={{ gridTemplateRows: expandido ? "1fr" : "0fr" }}
       >
         <div className="overflow-hidden">
-        <div className="border-t border-border px-8 pb-8 pt-6 space-y-6"
-          style={{ opacity: expandido ? 1 : 0, transition: "opacity 0.35s ease 0.1s" }}
-        >
-
-          {/* Items */}
-          <ul className="space-y-3">
-            {pedido.itens.map((item) => (
-              <li key={item.id} className="flex items-baseline justify-between gap-6">
-                <div>
-                  <span className="serif text-lg">{item.produto_nome}</span>
-                  <span className="ml-3 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                    {item.tamanho} · {item.aroma}
-                    {item.refil ? " · com refil" : ""}
+          <div
+            className="border-t border-border px-8 pb-8 pt-6 space-y-6"
+            style={{ opacity: expandido ? 1 : 0, transition: "opacity 0.35s ease 0.1s" }}
+          >
+            {/* Items */}
+            <ul className="space-y-3">
+              {pedido.itens.map((item) => (
+                <li key={item.id} className="flex items-baseline justify-between gap-6">
+                  <div>
+                    <span className="serif text-lg">{item.produto_nome}</span>
+                    <span className="ml-3 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      {item.tamanho} · {item.aroma}
+                      {item.refil ? " · com refil" : ""}
+                    </span>
+                    {item.quantidade > 1 && (
+                      <span className="ml-2 text-[11px] text-muted-foreground">
+                        ×{item.quantidade}
+                      </span>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-sm tabular-nums">
+                    {formatarPreco(item.subtotal_centavos)}
                   </span>
-                  {item.quantidade > 1 && (
-                    <span className="ml-2 text-[11px] text-muted-foreground">×{item.quantidade}</span>
-                  )}
-                </div>
-                <span className="shrink-0 text-sm tabular-nums">
-                  {formatarPreco(item.subtotal_centavos)}
-                </span>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
 
-          {/* Price breakdown */}
-          <div className="border-t border-border pt-4 space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Subtotal</span>
-              <span className="tabular-nums">{formatarPreco(subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Frete{pedido.frete_servico ? ` — ${pedido.frete_servico}` : ""}</span>
-              <span className="tabular-nums">
-                {pedido.frete_servico
-                  ? pedido.frete_centavos === 0 ? "Grátis" : formatarPreco(pedido.frete_centavos)
-                  : "a combinar"}
-              </span>
-            </div>
-            <div className="flex justify-between pt-1">
-              <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Total</span>
-              <span className="serif text-2xl tabular-nums">{formatarPreco(pedido.total_centavos)}</span>
-            </div>
-          </div>
-
-          {/* Tracking code */}
-          {pedido.codigo_rastreio && (
-            <div className="flex items-center justify-between gap-4 border border-border px-5 py-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                  Código de rastreio
-                </p>
-                <p className="mt-1 font-mono text-sm tracking-wider">{pedido.codigo_rastreio}</p>
+            {/* Price breakdown */}
+            <div className="border-t border-border pt-4 space-y-2">
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatarPreco(subtotal)}</span>
               </div>
-              <button
-                type="button"
-                onClick={copiarRastreio}
-                className="shrink-0 text-[10px] uppercase tracking-[0.25em] text-muted-foreground transition-colors duration-200 hover:text-foreground"
-              >
-                {copiado ? "Copiado ✓" : "Copiar"}
-              </button>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Frete{pedido.frete_servico ? ` — ${pedido.frete_servico}` : ""}</span>
+                <span className="tabular-nums">
+                  {pedido.frete_servico
+                    ? pedido.frete_centavos === 0
+                      ? "Grátis"
+                      : formatarPreco(pedido.frete_centavos)
+                    : "a combinar"}
+                </span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Total
+                </span>
+                <span className="serif text-2xl tabular-nums">
+                  {formatarPreco(pedido.total_centavos)}
+                </span>
+              </div>
             </div>
-          )}
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {pedido.status === "novo" && (
-              <Link
-                to="/pagamento/$pedidoId"
-                params={{ pedidoId: pedido.id }}
-                className="group flex flex-1 items-center justify-between border border-foreground bg-foreground px-6 py-4 text-xs uppercase tracking-[0.3em] text-background transition-colors duration-300 hover:bg-foreground/85"
-              >
-                Pagar agora
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:translate-x-1">
-                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </Link>
+            {/* Tracking code */}
+            {pedido.codigo_rastreio && (
+              <div className="flex items-center justify-between gap-4 border border-border px-5 py-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                    Código de rastreio
+                  </p>
+                  <p className="mt-1 font-mono text-sm tracking-wider">{pedido.codigo_rastreio}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copiarRastreio}
+                  className="shrink-0 text-[10px] uppercase tracking-[0.25em] text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                >
+                  {copiado ? "Copiado ✓" : "Copiar"}
+                </button>
+              </div>
             )}
-            {pedido.status !== "cancelado" && (
-              <Link
-                to="/rastreio/$pedidoId"
-                params={{ pedidoId: pedido.id }}
-                className="group flex flex-1 items-center justify-between border border-foreground/30 px-6 py-4 text-xs uppercase tracking-[0.3em] text-muted-foreground transition-all duration-300 hover:border-foreground hover:text-foreground"
-              >
-                Acompanhar pedido
-                <span className="h-px w-4 bg-current transition-all duration-300 group-hover:w-7" />
-              </Link>
-            )}
+
+            {/* Actions */}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {pedido.status === "novo" && (
+                <Link
+                  to="/pagamento/$pedidoId"
+                  params={{ pedidoId: pedido.id }}
+                  className="group flex flex-1 items-center justify-between border border-foreground bg-foreground px-6 py-4 text-xs uppercase tracking-[0.3em] text-background transition-colors duration-300 hover:bg-foreground/85"
+                >
+                  Pagar agora
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="transition-transform duration-300 group-hover:translate-x-1"
+                  >
+                    <path
+                      d="M3 8h10M9 4l4 4-4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </Link>
+              )}
+              {pedido.status !== "cancelado" && (
+                <Link
+                  to="/rastreio/$pedidoId"
+                  params={{ pedidoId: pedido.id }}
+                  className="group flex flex-1 items-center justify-between border border-foreground/30 px-6 py-4 text-xs uppercase tracking-[0.3em] text-muted-foreground transition-all duration-300 hover:border-foreground hover:text-foreground"
+                >
+                  Acompanhar pedido
+                  <span className="h-px w-4 bg-current transition-all duration-300 group-hover:w-7" />
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
         </div>
       </div>
     </div>

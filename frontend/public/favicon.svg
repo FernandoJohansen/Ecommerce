@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#0a0a0a"/>
+  <!-- C arc: opens to the right, center 16,16, radius 10 -->
+  <path d="M 23.07 8.93 A 10 10 0 1 0 23.07 23.07"
+        fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+  <!-- V -->
+  <polyline points="10,12 16,21 22,12"
+            fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

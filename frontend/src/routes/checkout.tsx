@@ -252,9 +252,15 @@ function CheckoutPage() {
           setEstado(data.uf ?? "");
         }
       })
-      .catch(() => { if (!cancelado) setCepNaoEncontrado(true); })
-      .finally(() => { if (!cancelado) setBuscandoCep(false); });
-    return () => { cancelado = true; };
+      .catch(() => {
+        if (!cancelado) setCepNaoEncontrado(true);
+      })
+      .finally(() => {
+        if (!cancelado) setBuscandoCep(false);
+      });
+    return () => {
+      cancelado = true;
+    };
   }, [cepDigitos]);
 
   // Cotação de frete: dispara quando o CEP fica completo e os itens têm

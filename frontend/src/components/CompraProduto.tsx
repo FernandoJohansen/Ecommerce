@@ -201,86 +201,116 @@ export function CompraProduto({
         </Button>
       )}
 
-      {addedCarrinho && typeof document !== "undefined" && createPortal(
-        <div
-          className="animate-backdrop-in fixed inset-0 z-50 flex items-end justify-center bg-foreground/50 backdrop-blur-sm md:items-center"
-          onClick={() => setAddedCarrinho(false)}
-        >
+      {addedCarrinho &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="animate-modal-in mx-0 w-full max-w-md border-t border-foreground bg-background md:mx-4 md:border"
-            onClick={(e) => e.stopPropagation()}
+            className="animate-backdrop-in fixed inset-0 z-50 flex items-end justify-center bg-foreground/50 backdrop-blur-sm md:items-center"
+            onClick={() => setAddedCarrinho(false)}
           >
-            {/* top bar */}
-            <div className="flex items-center justify-between px-8 pt-8">
-              <span className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground"
-                style={{ animationDelay: "80ms" }}>
-                Carrinho atualizado
-              </span>
-              <button
-                type="button"
-                onClick={() => setAddedCarrinho(false)}
-                aria-label="Fechar"
-                className="group flex h-7 w-7 items-center justify-center text-muted-foreground transition-colors duration-200 hover:text-foreground"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="transition-transform duration-300 group-hover:rotate-90">
-                  <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                </svg>
-              </button>
-            </div>
-
-            {/* animated divider */}
-            <div className="animate-line-expand mx-8 mt-5 h-px bg-foreground/15" />
-
-            {/* content */}
-            <div className="px-8 pb-8 pt-6">
-              <h2
-                className="serif text-4xl leading-tight"
-                style={{ animation: "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 0.1s both" }}
-              >
-                Item adicionado
-                <br />
-                <em className="font-light italic text-muted-foreground">ao carrinho.</em>
-              </h2>
-              <p
-                className="mt-3 text-sm text-muted-foreground"
-                style={{ animation: "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 0.18s both" }}
-              >
-                O que deseja fazer agora?
-              </p>
-
-              <div
-                className="mt-8 flex flex-col gap-3"
-                style={{ animation: "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 0.26s both" }}
-              >
+            <div
+              className="animate-modal-in mx-0 w-full max-w-md border-t border-foreground bg-background md:mx-4 md:border"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* top bar */}
+              <div className="flex items-center justify-between px-8 pt-8">
+                <span
+                  className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground"
+                  style={{ animationDelay: "80ms" }}
+                >
+                  Carrinho atualizado
+                </span>
                 <button
                   type="button"
-                  onClick={() => navigate({ to: "/checkout" })}
-                  className="group relative w-full overflow-hidden border border-foreground bg-foreground px-6 py-4 text-left text-xs uppercase tracking-[0.3em] text-background transition-colors duration-300 hover:bg-foreground/85"
+                  onClick={() => setAddedCarrinho(false)}
+                  aria-label="Fechar"
+                  className="group flex h-7 w-7 items-center justify-center text-muted-foreground transition-colors duration-200 hover:text-foreground"
                 >
-                  <span className="flex items-center justify-between">
-                    Finalizar compra
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:translate-x-1">
-                      <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => { setAddedCarrinho(false); navigate({ to: "/produtos" }); }}
-                  className="group w-full border border-foreground/20 px-6 py-4 text-left text-xs uppercase tracking-[0.3em] text-muted-foreground transition-all duration-300 hover:border-foreground hover:text-foreground"
-                >
-                  <span className="flex items-center justify-between">
-                    Voltar à loja
-                    <span className="h-px w-4 bg-current transition-all duration-300 group-hover:w-7" />
-                  </span>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    className="transition-transform duration-300 group-hover:rotate-90"
+                  >
+                    <path
+                      d="M1 1l12 12M13 1L1 13"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
                 </button>
               </div>
+
+              {/* animated divider */}
+              <div className="animate-line-expand mx-8 mt-5 h-px bg-foreground/15" />
+
+              {/* content */}
+              <div className="px-8 pb-8 pt-6">
+                <h2
+                  className="serif text-4xl leading-tight"
+                  style={{ animation: "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 0.1s both" }}
+                >
+                  Item adicionado
+                  <br />
+                  <em className="font-light italic text-muted-foreground">ao carrinho.</em>
+                </h2>
+                <p
+                  className="mt-3 text-sm text-muted-foreground"
+                  style={{ animation: "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 0.18s both" }}
+                >
+                  O que deseja fazer agora?
+                </p>
+
+                <div
+                  className="mt-8 flex flex-col gap-3"
+                  style={{ animation: "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) 0.26s both" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => navigate({ to: "/checkout" })}
+                    className="group relative w-full overflow-hidden border border-foreground bg-foreground px-6 py-4 text-left text-xs uppercase tracking-[0.3em] text-background transition-colors duration-300 hover:bg-foreground/85"
+                  >
+                    <span className="flex items-center justify-between">
+                      Finalizar compra
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        className="transition-transform duration-300 group-hover:translate-x-1"
+                      >
+                        <path
+                          d="M3 8h10M9 4l4 4-4 4"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddedCarrinho(false);
+                      navigate({ to: "/produtos" });
+                    }}
+                    className="group w-full border border-foreground/20 px-6 py-4 text-left text-xs uppercase tracking-[0.3em] text-muted-foreground transition-all duration-300 hover:border-foreground hover:text-foreground"
+                  >
+                    <span className="flex items-center justify-between">
+                      Voltar à loja
+                      <span className="h-px w-4 bg-current transition-all duration-300 group-hover:w-7" />
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

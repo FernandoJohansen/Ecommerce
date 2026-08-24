@@ -40,7 +40,11 @@ function CarrinhoPage() {
     setChecked(true);
   }, [navigate]);
 
-  const { data: itens = [], isLoading, error } = useQuery<ItemCarrinho[]>({
+  const {
+    data: itens = [],
+    isLoading,
+    error,
+  } = useQuery<ItemCarrinho[]>({
     queryKey: ["carrinho"],
     queryFn: () => apiFetch("/carrinho"),
     enabled: checked,
@@ -75,7 +79,6 @@ function CarrinhoPage() {
       <div className="pt-24">
         <section className="min-h-[70vh] bg-background py-20">
           <div className="mx-auto max-w-7xl px-6 md:px-12">
-
             {/* Page heading */}
             <Reveal className="mb-14">
               <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
@@ -129,8 +132,20 @@ function CarrinhoPage() {
                   className="group inline-flex items-center gap-3 border border-foreground bg-foreground px-8 py-4 text-xs uppercase tracking-[0.3em] text-background transition-colors duration-300 hover:bg-transparent hover:text-foreground"
                 >
                   Ver produtos
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:translate-x-1">
-                    <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="transition-transform duration-300 group-hover:translate-x-1"
+                  >
+                    <path
+                      d="M3 8h10M9 4l4 4-4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </Link>
               </Reveal>
@@ -139,16 +154,11 @@ function CarrinhoPage() {
             {/* Cart items */}
             {itens.length > 0 && (
               <div className="grid gap-12 lg:grid-cols-[1fr_320px]">
-
                 {/* Item list */}
                 <div>
                   <ul>
                     {itens.map((item, i) => (
-                      <Reveal
-                        key={item.id}
-                        delay={i * 80}
-                        className="group border-b border-border"
-                      >
+                      <Reveal key={item.id} delay={i * 80} className="group border-b border-border">
                         <li className="flex items-center gap-6 py-8">
                           {/* Info */}
                           <div className="min-w-0 flex-1">
@@ -160,15 +170,20 @@ function CarrinhoPage() {
                             <p className="mt-3 text-sm">
                               {item.subtotal_centavos !== null ? (
                                 <>
-                                  <span className="font-medium">{formatarPreco(item.subtotal_centavos)}</span>
+                                  <span className="font-medium">
+                                    {formatarPreco(item.subtotal_centavos)}
+                                  </span>
                                   {item.quantidade > 1 && item.preco_unitario_centavos !== null && (
                                     <span className="ml-2 text-xs text-muted-foreground">
-                                      {item.quantidade} × {formatarPreco(item.preco_unitario_centavos)}
+                                      {item.quantidade} ×{" "}
+                                      {formatarPreco(item.preco_unitario_centavos)}
                                     </span>
                                   )}
                                 </>
                               ) : (
-                                <span className="text-xs text-muted-foreground">preço indisponível</span>
+                                <span className="text-xs text-muted-foreground">
+                                  preço indisponível
+                                </span>
                               )}
                             </p>
                           </div>
@@ -178,22 +193,44 @@ function CarrinhoPage() {
                             <button
                               aria-label="Diminuir quantidade"
                               disabled={item.quantidade <= 1 || alterarQuantidade.isPending}
-                              onClick={() => alterarQuantidade.mutate({ id: item.id, quantidade: item.quantidade - 1 })}
+                              onClick={() =>
+                                alterarQuantidade.mutate({
+                                  id: item.id,
+                                  quantidade: item.quantidade - 1,
+                                })
+                              }
                               className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-all duration-200 hover:bg-foreground hover:text-background disabled:opacity-30"
                             >
                               <svg width="12" height="2" viewBox="0 0 12 2" fill="none">
-                                <path d="M1 1h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                <path
+                                  d="M1 1h10"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                />
                               </svg>
                             </button>
-                            <span className="w-8 text-center text-sm tabular-nums">{item.quantidade}</span>
+                            <span className="w-8 text-center text-sm tabular-nums">
+                              {item.quantidade}
+                            </span>
                             <button
                               aria-label="Aumentar quantidade"
                               disabled={item.quantidade >= 99 || alterarQuantidade.isPending}
-                              onClick={() => alterarQuantidade.mutate({ id: item.id, quantidade: item.quantidade + 1 })}
+                              onClick={() =>
+                                alterarQuantidade.mutate({
+                                  id: item.id,
+                                  quantidade: item.quantidade + 1,
+                                })
+                              }
                               className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-all duration-200 hover:bg-foreground hover:text-background disabled:opacity-30"
                             >
                               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                <path
+                                  d="M6 1v10M1 6h10"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                />
                               </svg>
                             </button>
                           </div>
@@ -206,7 +243,12 @@ function CarrinhoPage() {
                             className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-all duration-200 hover:text-foreground disabled:opacity-30"
                           >
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                              <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                              <path
+                                d="M1 1l12 12M13 1L1 13"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                              />
                             </svg>
                           </button>
                         </li>
@@ -219,8 +261,20 @@ function CarrinhoPage() {
                       to="/produtos"
                       className="group inline-flex items-center gap-3 text-[11px] uppercase tracking-[0.3em] text-muted-foreground transition-all duration-300 hover:text-foreground"
                     >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:-translate-x-1">
-                        <path d="M13 8H3M7 12L3 8l4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        className="transition-transform duration-300 group-hover:-translate-x-1"
+                      >
+                        <path
+                          d="M13 8H3M7 12L3 8l4-4"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       Continuar comprando
                     </Link>
@@ -236,7 +290,10 @@ function CarrinhoPage() {
 
                     <div className="space-y-3 pt-2">
                       {itens.map((item) => (
-                        <div key={item.id} className="flex items-baseline justify-between gap-4 text-sm">
+                        <div
+                          key={item.id}
+                          className="flex items-baseline justify-between gap-4 text-sm"
+                        >
                           <span className="truncate text-muted-foreground">
                             {item.produto_nome}
                             {item.quantidade > 1 && (
@@ -272,8 +329,20 @@ function CarrinhoPage() {
                       className="group flex w-full items-center justify-between border border-foreground bg-foreground px-6 py-4 text-xs uppercase tracking-[0.3em] text-background transition-colors duration-300 hover:bg-foreground/85"
                     >
                       Finalizar pedido
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:translate-x-1">
-                        <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        className="transition-transform duration-300 group-hover:translate-x-1"
+                      >
+                        <path
+                          d="M3 8h10M9 4l4 4-4 4"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     </Link>
 
