@@ -147,51 +147,72 @@ class TestBlockedTransitions:
 
 
 @patch("app.services.order_service.repor_estoque_pedido")
+@patch("app.services.order_service.update_pedido_se_status")
 @patch("app.services.order_service.update_pedido")
 @patch("app.services.order_service.get_pedido_by_id")
 class TestStockRestoration:
-    def test_novo_to_cancelado_restores_stock(self, mock_get, mock_update, mock_repor):
+    # Transitions that cancel/expire with stock: code uses CAS (update_pedido_se_status)
+    def test_novo_to_cancelado_restores_stock(self, mock_get, mock_update, mock_cas, mock_repor):
         mock_get.return_value = _pedido("novo", _ITENS)
-        mock_update.return_value = _updated("cancelado")
+        mock_cas.return_value = _updated("cancelado")
 
         update_pedido_status("pedido-001", PedidoUpdate(status="cancelado"))
 
+        mock_cas.assert_called_once()
+        mock_update.assert_not_called()
         mock_repor.assert_called_once_with(_EXPECTED_QUANTIDADES)
 
-    def test_novo_to_expirado_restores_stock(self, mock_get, mock_update, mock_repor):
+    def test_novo_to_expirado_restores_stock(self, mock_get, mock_update, mock_cas, mock_repor):
         mock_get.return_value = _pedido("novo", _ITENS)
-        mock_update.return_value = _updated("expirado")
+        mock_cas.return_value = _updated("expirado")
 
         update_pedido_status("pedido-001", PedidoUpdate(status="expirado"))
 
+        mock_cas.assert_called_once()
+        mock_update.assert_not_called()
         mock_repor.assert_called_once_with(_EXPECTED_QUANTIDADES)
 
-    def test_em_andamento_to_cancelado_restores_stock(self, mock_get, mock_update, mock_repor):
+    def test_em_andamento_to_cancelado_restores_stock(self, mock_get, mock_update, mock_cas, mock_repor):
         mock_get.return_value = _pedido("em_andamento", _ITENS)
-        mock_update.return_value = _updated("cancelado")
+        mock_cas.return_value = _updated("cancelado")
 
         update_pedido_status("pedido-001", PedidoUpdate(status="cancelado"))
 
+        mock_cas.assert_called_once()
+        mock_update.assert_not_called()
         mock_repor.assert_called_once_with(_EXPECTED_QUANTIDADES)
 
-    def test_pago_to_reembolsado_does_not_restore_stock(self, mock_get, mock_update, mock_repor):
+    def test_concurrent_cancel_raises_409(self, mock_get, mock_update, mock_cas, mock_repor):
+        # CAS returns None → another process already changed the status
+        mock_get.return_value = _pedido("novo", _ITENS)
+        mock_cas.return_value = None
+
+        with pytest.raises(HTTPException) as exc:
+            update_pedido_status("pedido-001", PedidoUpdate(status="cancelado"))
+
+        assert exc.value.status_code == 409
+        mock_repor.assert_not_called()
+
+    def test_pago_to_reembolsado_does_not_restore_stock(self, mock_get, mock_update, mock_cas, mock_repor):
         # Stock was already consumed on payment — a refund doesn't put stock back
         mock_get.return_value = _pedido("pago", _ITENS)
         mock_update.return_value = _updated("reembolsado")
 
         update_pedido_status("pedido-001", PedidoUpdate(status="reembolsado"))
 
+        mock_cas.assert_not_called()
         mock_repor.assert_not_called()
 
-    def test_enviado_to_concluido_does_not_restore_stock(self, mock_get, mock_update, mock_repor):
+    def test_enviado_to_concluido_does_not_restore_stock(self, mock_get, mock_update, mock_cas, mock_repor):
         mock_get.return_value = _pedido("enviado", _ITENS)
         mock_update.return_value = _updated("concluido")
 
         update_pedido_status("pedido-001", PedidoUpdate(status="concluido"))
 
+        mock_cas.assert_not_called()
         mock_repor.assert_not_called()
 
-    def test_missing_pedido_raises_404(self, mock_get, mock_update, mock_repor):
+    def test_missing_pedido_raises_404(self, mock_get, mock_update, mock_cas, mock_repor):
         mock_get.return_value = None
 
         with pytest.raises(HTTPException) as exc:

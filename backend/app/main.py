@@ -2,8 +2,9 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1 import (
@@ -29,6 +30,8 @@ from app.core.config import (
 )
 from app.core.ratelimit import limiter, rate_limit_handler
 from app.core.securityheaders import SecurityHeadersMiddleware
+from app.services import melhorenvio_client, mercadopago_client, sicredi_client
+from app.services.email_service import close_client as close_email_client
 from app.services.expiracao_service import expirar_pedidos_nao_pagos
 from app.services.payment_service import sincronizar_pagamentos_pendentes
 
@@ -70,29 +73,52 @@ async def _anonimizar_dados_loop() -> None:
         await asyncio.sleep(ANONIMIZACAO_INTERVALO_SEGUNDOS)
 
 
+_PAGAMENTO_CAMPOS_PII = ("email_pagador", "ip_origem")
+
+
 def _anonimizar_pedidos_antigos() -> None:
     from datetime import datetime, timedelta, timezone
 
     from app.core.database import supabase
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=5 * 365)).isoformat()
-    result = supabase.table("pedidos").update(
-        {
-            "nome_cliente": "ANONIMIZADO",
-            "telefone": None,
-            "cpf_cnpj": None,
-            "rua": None,
-            "numero": None,
-            "complemento": None,
-            "bairro": None,
-            "cidade": None,
-            "cep": None,
-            "observacoes": None,
-            "anonymized_at": datetime.now(timezone.utc).isoformat(),
-        }
-    ).lt("created_at", cutoff).is_("anonymized_at", "null").execute()
-    count = len(result.data or [])
+    from app.core.lgpd import CAMPOS_ANONIMIZAR_PEDIDOS
+
+    agora = datetime.now(timezone.utc)
+    cutoff = (agora - timedelta(days=5 * 365)).isoformat()
+    campos = {**CAMPOS_ANONIMIZAR_PEDIDOS, "anonymized_at": agora.isoformat()}
+    result = (
+        supabase.table("pedidos")
+        .update(campos)
+        .lt("created_at", cutoff)
+        .is_("anonymized_at", "null")
+        .execute()
+    )
+    ids_anonimizados = [r["id"] for r in (result.data or [])]
+    count = len(ids_anonimizados)
     if count:
         logger.info("LGPD: anonimizados %d pedido(s) com mais de 5 anos", count)
+
+    # Remove PII de pagamentos.detalhes (email_pagador, ip_origem) vinculados
+    # aos pedidos anonimizados. Feito entry-by-entry para só tocar nos campos
+    # identificadores, preservando os dados técnicos do pagamento.
+    if ids_anonimizados:
+        pags = (
+            supabase.table("pagamentos")
+            .select("id, detalhes")
+            .in_("pedido_id", ids_anonimizados)
+            .execute()
+        )
+        for pag in (pags.data or []):
+            detalhes = dict(pag.get("detalhes") or {})
+            if any(k in detalhes for k in _PAGAMENTO_CAMPOS_PII):
+                for k in _PAGAMENTO_CAMPOS_PII:
+                    detalhes.pop(k, None)
+                supabase.table("pagamentos").update({"detalhes": detalhes}).eq("id", pag["id"]).execute()
+
+        # audit_log.detalhes guarda nome_cliente nos registros de exclusão de
+        # pedidos — nulos os detalhes inteiros (são dados internos de operação).
+        supabase.table("audit_log").update({"detalhes": None}).in_(
+            "recurso_id", ids_anonimizados
+        ).eq("acao", "pedido.excluir").execute()
 
 
 @asynccontextmanager
@@ -124,6 +150,10 @@ async def lifespan(_app: FastAPI):
     yield
     for task in tasks:
         task.cancel()
+    sicredi_client.close_client()
+    mercadopago_client.close_client()
+    melhorenvio_client.close_client()
+    close_email_client()
 
 
 # Docs interativas só quando ENABLE_API_DOCS=true (dev). Em produção ficam
@@ -138,6 +168,16 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+
+@app.exception_handler(Exception)
+async def _supabase_api_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    # Catch supabase-py APIError (PostgREST errors) so malformed UUIDs and
+    # other DB-boundary failures return a structured 503 instead of an unlabelled 500.
+    if type(exc).__name__ == "APIError":
+        logger.warning("Supabase APIError on %s %s: %s", request.method, request.url.path, exc)
+        return JSONResponse(status_code=503, content={"detail": "Serviço temporariamente indisponível"})
+    raise exc
 
 # add_middleware empilha de dentro para fora: a última chamada fica na camada
 # mais externa. Ordem desejada: SecurityHeaders > CORS > BodySizeLimit.
@@ -166,5 +206,5 @@ app.include_router(api_router)
 
 
 @app.get("/")
-def health():
+async def health():
     return {"status": "ok"}

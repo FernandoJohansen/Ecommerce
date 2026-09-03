@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from datetime import datetime, timezone
@@ -41,6 +42,7 @@ def _update_user_metadata(jwt: str, data: dict) -> dict:
         f"{SUPABASE_URL}/auth/v1/user",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {jwt}"},
         json={"data": data},
+        timeout=10,
     )
     if response.status_code != 200:
         logger.warning("Profile update failed: %s %s", response.status_code, response.text)
@@ -132,6 +134,7 @@ def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
     httpx.post(
         f"{SUPABASE_URL}/auth/v1/logout",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {credentials.credentials}"},
+        timeout=10,
     )
 
 
@@ -179,18 +182,19 @@ async def upload_avatar(
 
     path = f"{user.id}.{ext}"
     try:
-        supabase.storage.from_(AVATAR_BUCKET).upload(
-            path, content, {"content-type": tipo_real, "upsert": "true"}
+        await asyncio.to_thread(
+            supabase.storage.from_(AVATAR_BUCKET).upload,
+            path, content, {"content-type": tipo_real, "upsert": "true"},
         )
     except Exception:
         logger.exception("Avatar upload failed for user %s", user.id)
         raise HTTPException(status_code=500, detail="Não foi possível enviar a imagem.")
 
-    public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(path).rstrip("?")
+    public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(path).removesuffix("?")
     # Cache-buster so the browser picks up the new image at the same path
     avatar_url = f"{public_url}?v={int(time.time())}"
 
-    data = _update_user_metadata(credentials.credentials, {"avatar_url": avatar_url})
+    data = await asyncio.to_thread(_update_user_metadata, credentials.credentials, {"avatar_url": avatar_url})
     return _profile_from_gotrue(data)
 
 
@@ -224,37 +228,24 @@ def deletar_meus_dados(
 
 def _anonimizar_pedidos_usuario(user_id: str) -> None:
     from app.core.database import supabase as _db
-    _db.table("pedidos").update(
-        {
-            "nome_cliente": "ANONIMIZADO",
-            "telefone": None,
-            "cpf_cnpj": None,
-            "rua": None,
-            "numero": None,
-            "complemento": None,
-            "bairro": None,
-            "cidade": None,
-            "cep": None,
-            "observacoes": None,
-            "anonymized_at": datetime.now(timezone.utc).isoformat(),
-        }
-    ).eq("user_id", user_id).is_("anonymized_at", "null").execute()
+    from app.core.lgpd import CAMPOS_ANONIMIZAR_PEDIDOS
+
+    campos = {**CAMPOS_ANONIMIZAR_PEDIDOS, "anonymized_at": datetime.now(timezone.utc).isoformat()}
+    _db.table("pedidos").update(campos).eq("user_id", user_id).is_("anonymized_at", "null").execute()
 
 
 def _deletar_conta_supabase(user_id: str, _jwt: str) -> None:
-    response = httpx.delete(
-        f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
-        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-        timeout=10,
-    )
-    if response.status_code not in (200, 204):
-        logger.error(
-            "Account deletion failed for %s: %s %s — "
-            "SUPABASE_KEY must be the service_role key to use the admin endpoint",
-            user_id,
-            response.status_code,
-            response.text,
+    from supabase_auth.errors import AuthRetryableError
+    try:
+        supabase_auth.auth.admin.delete_user(user_id)
+    except AuthRetryableError as e:
+        logger.warning("Account deletion transient error for %s: %s", user_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Serviço temporariamente indisponível. Tente novamente.",
         )
+    except Exception as e:
+        logger.error("Account deletion failed for %s: %s", user_id, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Não foi possível excluir a conta. Tente novamente ou contacte o suporte.",

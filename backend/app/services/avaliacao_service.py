@@ -61,6 +61,10 @@ def listar_pendentes() -> list[dict]:
 
 
 def moderar(avaliacao_id: str, aprovado: bool) -> dict:
+    from datetime import datetime, timezone
     if not get_avaliacao_by_id(avaliacao_id):
         raise HTTPException(status_code=404, detail="Avaliação não encontrada")
-    return update_avaliacao(avaliacao_id, {"aprovado": aprovado})
+    return update_avaliacao(avaliacao_id, {
+        "aprovado": aprovado,
+        "moderado_em": datetime.now(timezone.utc).isoformat(),
+    })

@@ -1,6 +1,6 @@
-import hashlib
 import logging
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -65,12 +65,15 @@ _VELOCITY_LIMIT = 5
 _VELOCITY_JANELA_SEGUNDOS = 3600
 
 
+_MP_NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # uuid.NAMESPACE_URL
+
+
 def _idempotency_key(pedido_id: str, metodo: str) -> str:
-    """Deterministic key stable for a 5-minute window; retries in that window
+    """Deterministic UUID v5 stable for a 5-minute window; retries in that window
     reuse the same key so MercadoPago deduplicates instead of double-charging."""
     window = int(time.time()) // 300
     raw = f"{pedido_id}:{metodo}:{window}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+    return str(uuid.uuid5(_MP_NS, raw))
 
 
 def _checar_velocity(ip_origem: str, pedido_id: str) -> None:
@@ -137,14 +140,15 @@ def exigir_acesso_pedido(
     raise HTTPException(status_code=404, detail=detail)
 
 
+_STATUS_PAGAVEIS = {"novo", "em_andamento"}
+
+
 def _validar_pedido_para_pagamento(pedido_id: str) -> dict:
     pedido = get_pedido_by_id(pedido_id)
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    if pedido["status"] == "pago":
-        raise HTTPException(status_code=409, detail="Este pedido já está pago")
-    if pedido["status"] == "cancelado":
-        raise HTTPException(status_code=409, detail="Este pedido foi cancelado")
+    if pedido["status"] not in _STATUS_PAGAVEIS:
+        raise HTTPException(status_code=409, detail="Este pedido não está aberto para pagamento")
     if pedido["total_centavos"] <= 0:
         raise HTTPException(status_code=422, detail="Pedido sem valor a pagar")
     return pedido
@@ -154,6 +158,8 @@ def criar_cobranca_pix(pedido_id: str, user, token_pagamento: str | None) -> dic
     # Antes de validar: os 409/422 de status revelariam dados do pedido
     exigir_acesso_pedido(pedido_id, user, token_pagamento)
     pedido = _validar_pedido_para_pagamento(pedido_id)
+    if _pedido_ja_aprovado(pedido_id):
+        raise HTTPException(status_code=409, detail="Este pedido já está pago")
 
     # Reaproveita a cobrança ativa mais recente dentro do prazo, para o cliente
     # que recarrega a página não gerar uma nova cobrança a cada visita.
@@ -233,21 +239,30 @@ def consultar_pagamento(txid: str, user, token_pagamento: str | None) -> dict:
     return _resposta(row)
 
 
-def processar_webhook_pix(payload: dict, event_id: str | None = None) -> dict:
+_MAX_PIX_ENTRIES = 100
+
+
+def processar_webhook_pix(payload: dict) -> dict:
     """Notificação de PIX recebido. O corpo do POST não é confiável por si só:
     para cada txid notificado, o status é reconferido direto no Sicredi antes
     de marcar qualquer coisa como paga."""
-    if event_id:
-        if not webhook_evento_novo(event_id, "sicredi"):
-            logger.info("webhook.duplicate provider=sicredi event_id=%s", event_id)
-            return {"processados": 0}
-        logger.info("webhook.received provider=sicredi event_id=%s", event_id)
+    entradas = payload.get("pix") or []
+    if len(entradas) > _MAX_PIX_ENTRIES:
+        logger.warning("webhook.pix.oversized entries=%d (max=%d)", len(entradas), _MAX_PIX_ENTRIES)
+        return {"processados": 0}
 
     processados = 0
-    for pix in payload.get("pix") or []:
+    for pix in entradas:
         txid = pix.get("txid")
         if not txid:
             continue
+        # Usa o endToEndId como chave de idempotência por entrada; pagamentos
+        # já têm um índice único em e2eid, então é a chave natural de dedup.
+        e2eid = pix.get("endToEndId")
+        if e2eid:
+            if not webhook_evento_novo(e2eid, "sicredi"):
+                logger.info("webhook.pix.duplicate e2eid=%s", e2eid)
+                continue
         row = get_pagamento_by_txid(txid)
         if not row or row["status"] != "ATIVA":
             continue

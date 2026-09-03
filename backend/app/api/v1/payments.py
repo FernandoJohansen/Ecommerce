@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
 
 from app.core.config import (
     MERCADO_PAGO_WEBHOOK_SECRET,
@@ -47,7 +47,7 @@ def _token_pagamento(request: Request) -> str | None:
 
 
 @router.get("/metodos", response_model=MetodosResponse)
-def get_metodos():
+async def get_metodos():
     return listar_metodos()
 
 
@@ -60,7 +60,7 @@ def get_resumo(request: Request, pedido_id: str, user=Depends(get_optional_user)
 
 
 @router.get("/pix", response_model=PixResponse)
-def get_pix():
+async def get_pix():
     return get_pix_info()
 
 
@@ -106,12 +106,9 @@ def get_pagamento_mp(request: Request, response: Response, mp_payment_id: str, u
 # o serviço reconfere cada txid direto no Sicredi antes de confirmar.
 @router.post("/webhook/pix")
 @limiter.limit("60/minute")
-async def post_webhook_pix(request: Request):
-    try:
-        payload = await request.json()
-    except Exception:
-        payload = {}
-    return processar_webhook_pix(payload if isinstance(payload, dict) else {})
+def post_webhook_pix(request: Request, body: dict | None = Body(default=None)):
+    payload = body if isinstance(body, dict) else {}
+    return processar_webhook_pix(payload)
 
 
 def _validar_assinatura_mp(request: Request, data_id: str) -> None:
@@ -166,13 +163,8 @@ def _validar_frescor_ts(ts: str | None) -> None:
 # de confirmar qualquer coisa.
 @router.post("/webhook/mercadopago")
 @limiter.limit("60/minute")
-async def post_webhook_mercadopago(request: Request):
-    try:
-        payload = await request.json()
-    except Exception:
-        payload = {}
-    if not isinstance(payload, dict):
-        payload = {}
+def post_webhook_mercadopago(request: Request, body: dict | None = Body(default=None)):
+    payload = body if isinstance(body, dict) else {}
 
     tipo = request.query_params.get("type") or payload.get("type")
     data_id = request.query_params.get("data.id") or (payload.get("data") or {}).get("id")

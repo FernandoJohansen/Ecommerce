@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Request
 
 from app.core.ratelimit import limiter
@@ -15,8 +17,8 @@ router = APIRouter(tags=["avaliacoes"])
 
 
 @router.get("/avaliacoes", response_model=AvaliacoesListResponse)
-def get_avaliacoes(produto_id: str):
-    return listar_avaliacoes(produto_id)
+def get_avaliacoes(produto_id: UUID):
+    return listar_avaliacoes(str(produto_id))
 
 
 @router.post("/avaliacoes", response_model=AvaliacaoResponse, status_code=201)
@@ -31,5 +33,5 @@ def get_pendentes(_user=Depends(get_staff_user)):
 
 
 @router.patch("/admin/avaliacoes/{avaliacao_id}", response_model=AvaliacaoResponse)
-def patch_avaliacao(avaliacao_id: str, body: AvaliacaoModeracaoUpdate, _user=Depends(get_staff_user)):
-    return moderar(avaliacao_id, body.aprovado)
+def patch_avaliacao(avaliacao_id: UUID, body: AvaliacaoModeracaoUpdate, _user=Depends(get_staff_user)):
+    return moderar(str(avaliacao_id), body.aprovado)

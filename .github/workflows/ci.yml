@@ -50,5 +50,11 @@ jobs:
       - name: Import smoke test
         run: uv run python -c "import app.main"
 
+      - name: Lint (ruff)
+        run: uv run ruff check app
+
+      - name: Tests
+        run: uv run pytest tests/ -q
+
       - name: Docker build
         run: docker build -t viapianastore-backend .

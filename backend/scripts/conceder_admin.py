@@ -27,9 +27,18 @@ def main() -> None:
     if role not in ROLE_HIERARCHY:
         raise SystemExit(f"Papel inválido: {role!r} (use {', '.join(ROLE_HIERARCHY)})")
 
-    alvo = next(
-        (u for u in supabase.auth.admin.list_users() if (u.email or "").lower() == email), None
-    )
+    def _iter_users():
+        page, per_page = 1, 100
+        while True:
+            batch = supabase.auth.admin.list_users(page=page, per_page=per_page)
+            if not batch:
+                break
+            yield from batch
+            if len(batch) < per_page:
+                break
+            page += 1
+
+    alvo = next((u for u in _iter_users() if (u.email or "").lower() == email), None)
     if alvo is None:
         raise SystemExit(f"Nenhum usuário com o e-mail {email} — crie a conta antes.")
 

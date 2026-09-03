@@ -6,7 +6,11 @@ load_dotenv()
 
 SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
-ALLOWED_ORIGINS: list[str] = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+ALLOWED_ORIGINS: list[str] = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    if o.strip()
+]
 FRONTEND_URL: str = os.getenv("FRONTEND_URL", ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "http://localhost:5173")
 PIX_KEY: str = os.getenv("PIX_KEY", "")
 PIX_BENEFICIARIO: str = os.getenv("PIX_BENEFICIARIO", "Carolina Viapiana")

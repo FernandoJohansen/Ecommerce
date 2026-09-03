@@ -29,6 +29,11 @@ _lock = threading.Lock()
 _token: str | None = None
 _token_expira_em: float = 0.0
 
+# Shared client — created lazily on first use so the module can be imported
+# even when Sicredi creds are absent (SICREDI_ENABLED=False).
+_http_client: httpx.Client | None = None
+_client_lock = threading.Lock()
+
 
 def exigir_sicredi() -> None:
     if not SICREDI_ENABLED:
@@ -38,22 +43,37 @@ def exigir_sicredi() -> None:
         )
 
 
-def _client() -> httpx.Client:
-    return httpx.Client(
-        base_url=SICREDI_BASE_URL,
-        cert=(SICREDI_CERT_PATH, SICREDI_KEY_PATH),
-        verify=SICREDI_CA_PATH or True,
-        timeout=20.0,
-    )
+def _get_client() -> httpx.Client:
+    global _http_client
+    if _http_client is None:
+        with _client_lock:
+            if _http_client is None:
+                _http_client = httpx.Client(
+                    base_url=SICREDI_BASE_URL,
+                    cert=(SICREDI_CERT_PATH, SICREDI_KEY_PATH),
+                    verify=SICREDI_CA_PATH or True,
+                    timeout=20.0,
+                )
+    return _http_client
 
 
-def _obter_token(client: httpx.Client) -> str:
+def close_client() -> None:
+    global _http_client
+    if _http_client is not None:
+        _http_client.close()
+        _http_client = None
+
+
+def _obter_token() -> str:
     global _token, _token_expira_em
+    # Token cache read: fast path without the lock
+    if _token and time.monotonic() < _token_expira_em:
+        return _token
     with _lock:
         if _token and time.monotonic() < _token_expira_em:
             return _token
         resp = com_retry(
-            lambda: client.post(
+            lambda: _get_client().post(
                 "/oauth/token",
                 auth=(SICREDI_CLIENT_ID, SICREDI_CLIENT_SECRET),
                 data={"grant_type": "client_credentials", "scope": SCOPES},
@@ -79,22 +99,22 @@ def _invalidar_token() -> None:
 def _requisicao(metodo: str, caminho: str, json: dict | None = None) -> dict:
     exigir_sicredi()
     try:
-        with _client() as client:
-            token = _obter_token(client)
+        client = _get_client()
+        token = _obter_token()
+        resp = com_retry(
+            lambda: client.request(
+                metodo, caminho, json=json, headers={"Authorization": f"Bearer {token}"}
+            )
+        )
+        if resp.status_code == 401:
+            # token revogado antes do prazo: renova uma vez e repete
+            _invalidar_token()
+            token = _obter_token()
             resp = com_retry(
                 lambda: client.request(
                     metodo, caminho, json=json, headers={"Authorization": f"Bearer {token}"}
                 )
             )
-            if resp.status_code == 401:
-                # token revogado antes do prazo: renova uma vez e repete
-                _invalidar_token()
-                token = _obter_token(client)
-                resp = com_retry(
-                    lambda: client.request(
-                        metodo, caminho, json=json, headers={"Authorization": f"Bearer {token}"}
-                    )
-                )
     except HTTPException:
         raise
     except httpx.HTTPError:
@@ -131,15 +151,14 @@ def configurar_webhook(chave: str, webhook_url: str) -> None:
     # PUT /webhook/{chave} pode retornar corpo vazio — tratado abaixo.
     exigir_sicredi()
     try:
-        with _client() as client:
-            token = _obter_token(client)
-            resp = com_retry(
-                lambda: client.put(
-                    f"/api/v2/webhook/{chave}",
-                    json={"webhookUrl": webhook_url},
-                    headers={"Authorization": f"Bearer {token}"},
-                )
+        token = _obter_token()
+        resp = com_retry(
+            lambda: _get_client().put(
+                f"/api/v2/webhook/{chave}",
+                json={"webhookUrl": webhook_url},
+                headers={"Authorization": f"Bearer {token}"},
             )
+        )
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="PSP de pagamento inacessível")
     if resp.status_code >= 400:

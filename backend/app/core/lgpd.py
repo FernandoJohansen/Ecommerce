@@ -1,4 +1,4 @@
-"""Mascaramento de dados pessoais (LGPD).
+"""Mascaramento e anonimização de dados pessoais (LGPD).
 
 O CPF/CNPJ completo fica só no banco e nas chamadas ao PSP (Mercado Pago
 exige o documento real); nenhuma resposta da API devolve o documento em
@@ -7,6 +7,25 @@ o padrão do gov.br: primeiros dígitos e verificadores ocultos.
 """
 
 import re
+
+# Campos de pedidos que contêm dados pessoais — zeramos todos na anonimização
+# LGPD (Art. 18). A lista é a única fonte de verdade: tanto a varredura
+# periódica (main.py) quanto a exclusão por pedido do usuário (auth.py) usam
+# este dict para não divergirem.
+CAMPOS_ANONIMIZAR_PEDIDOS: dict = {
+    "nome_cliente": "ANONIMIZADO",
+    "email_cliente": None,
+    "telefone": None,
+    "cpf_cnpj": None,
+    "estado": None,
+    "rua": None,
+    "numero": None,
+    "complemento": None,
+    "bairro": None,
+    "cidade": None,
+    "cep": None,
+    "observacoes": None,
+}
 
 
 def mascarar_documento(valor: str | None) -> str | None:

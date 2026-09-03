@@ -6,8 +6,21 @@ from app.repositories.user_role_repository import get_all_user_roles, upsert_use
 from app.schemas.user import UserWithRole
 
 
+def _list_all_users():
+    """Fetches all GoTrue users across pages (list_users returns one page)."""
+    page, per_page = 1, 100
+    while True:
+        batch = supabase.auth.admin.list_users(page=page, per_page=per_page)
+        if not batch:
+            break
+        yield from batch
+        if len(batch) < per_page:
+            break
+        page += 1
+
+
 def list_users() -> list[UserWithRole]:
-    users = supabase.auth.admin.list_users()
+    users = list(_list_all_users())
     roles = get_all_user_roles()
     result = []
     for user in users:

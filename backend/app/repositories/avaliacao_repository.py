@@ -17,7 +17,7 @@ def get_avaliacoes_pendentes() -> list[dict]:
     result = (
         supabase.table("avaliacoes")
         .select("id, produto_nome, nota, comentario, nome_avaliador, aprovado, created_at")
-        .eq("aprovado", False)
+        .is_("moderado_em", "null")
         .order("created_at", desc=True)
         .execute()
     )

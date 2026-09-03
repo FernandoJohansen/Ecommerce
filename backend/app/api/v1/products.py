@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, File, Response, UploadFile
 
 from app.core.imagem import ler_upload_limitado
@@ -64,7 +66,7 @@ def patch_estoque(produto_id: str, body: EstoqueUpdate, user=Depends(get_staff_u
 async def post_imagem(produto_id: str, file: UploadFile = File(...), user=Depends(get_staff_user)):
     # Lê com corte no limite antes de carregar o corpo todo na memória.
     content = await ler_upload_limitado(file, IMAGEM_MAX_BYTES)
-    result = adicionar_imagem(produto_id, content)
+    result = await asyncio.to_thread(adicionar_imagem, produto_id, content)
     imagens = result.get("imagens") or []
     registrar_auditoria(
         user, "produto.imagem.adicionar", "produto", produto_id,

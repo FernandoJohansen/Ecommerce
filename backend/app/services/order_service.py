@@ -14,6 +14,7 @@ from app.repositories.order_repository import (
     insert_pedido,
     insert_pedido_itens,
     update_pedido,
+    update_pedido_se_status,
 )
 from app.schemas.order import TRANSICOES_PERMITIDAS, PedidoCreate, PedidoUpdate
 from app.services.frete_service import frete_do_pedido
@@ -187,6 +188,7 @@ def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
         data["codigo_rastreio"] = (data["codigo_rastreio"] or "").strip() or None
 
     _restaurar_estoque: dict[str, int] | None = None
+    status_atual: str | None = None
     if "status" in data:
         atual = get_pedido_by_id(pedido_id)
         if not atual:
@@ -204,11 +206,20 @@ def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
         if data["status"] in {"cancelado", "expirado"} and status_atual in {"novo", "em_andamento"}:
             _restaurar_estoque = quantidades_por_produto(atual.get("itens") or [])
 
-    result = update_pedido(pedido_id, data)
-    if not result:
-        raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    if _restaurar_estoque:
+    if _restaurar_estoque and status_atual:
+        # CAS: só restaura estoque se este processo foi quem mudou o status,
+        # evitando dupla devolução em requisições concorrentes.
+        result = update_pedido_se_status(pedido_id, status_atual, data)
+        if not result:
+            raise HTTPException(
+                status_code=409,
+                detail="O pedido foi modificado por outro processo. Recarregue e tente novamente.",
+            )
         repor_estoque_pedido(_restaurar_estoque)
+    else:
+        result = update_pedido(pedido_id, data)
+        if not result:
+            raise HTTPException(status_code=404, detail="Pedido não encontrado")
     resultado = _com_documento_mascarado(result)
     if data.get("status") == "enviado":
         from app.services import email_service
@@ -221,6 +232,9 @@ def update_pedido_status(pedido_id: str, pedido: PedidoUpdate) -> dict:
 STATUS_PROTEGIDOS_EXCLUSAO = {"pago", "enviado", "concluido"}
 
 
+_STATUS_COM_ESTOQUE_RESERVADO = {"novo", "em_andamento"}
+
+
 def remove_pedido(pedido_id: str) -> dict:
     pedido = get_pedido_by_id(pedido_id)
     if not pedido:
@@ -231,6 +245,12 @@ def remove_pedido(pedido_id: str) -> dict:
             detail="Pedido pago não pode ser excluído (histórico de pagamento); "
             "use o status Cancelado se necessário.",
         )
+    # Devolve o estoque reservado antes de apagar, igual ao que acontece no
+    # cancelamento — sem isso o estoque deriva para baixo permanentemente.
+    if pedido["status"] in _STATUS_COM_ESTOQUE_RESERVADO:
+        por_produto = quantidades_por_produto(pedido.get("itens") or [])
+        if por_produto:
+            repor_estoque_pedido(por_produto)
     result = delete_pedido(pedido_id)
     if not result:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")

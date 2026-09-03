@@ -8,11 +8,11 @@ get_current_user = verify_token
 get_optional_user = verify_token_optional
 
 
-def resolve_role(user_id: str, email: str | None) -> str:
+def resolve_role(user_id: str, email: str | None = None) -> str:
     # A única fonte de papel é a tabela user_roles. O primeiro admin é semeado
     # direto no banco (backend/scripts/conceder_admin.py) — não existe caminho
     # que conceda admin por e-mail/env, então registrar um e-mail "esperado"
-    # antes da dona não dá privilégio nenhum.
+    # antes da dona não dá privilégio nenhum. O parâmetro email não é utilizado.
     return get_user_role(user_id) or ROLE_CUSTOMER
 
 

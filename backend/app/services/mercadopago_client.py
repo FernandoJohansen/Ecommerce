@@ -16,6 +16,12 @@ from app.core.config import (
 from app.core.retry import com_retry
 
 
+import threading
+
+_http_client: httpx.Client | None = None
+_client_lock = threading.Lock()
+
+
 def exigir_mercado_pago() -> None:
     if not MERCADO_PAGO_ENABLED:
         raise HTTPException(
@@ -24,12 +30,24 @@ def exigir_mercado_pago() -> None:
         )
 
 
-def _client() -> httpx.Client:
-    return httpx.Client(
-        base_url=MERCADO_PAGO_BASE_URL,
-        headers={"Authorization": f"Bearer {MERCADO_PAGO_ACCESS_TOKEN}"},
-        timeout=20.0,
-    )
+def _get_client() -> httpx.Client:
+    global _http_client
+    if _http_client is None:
+        with _client_lock:
+            if _http_client is None:
+                _http_client = httpx.Client(
+                    base_url=MERCADO_PAGO_BASE_URL,
+                    headers={"Authorization": f"Bearer {MERCADO_PAGO_ACCESS_TOKEN}"},
+                    timeout=20.0,
+                )
+    return _http_client
+
+
+def close_client() -> None:
+    global _http_client
+    if _http_client is not None:
+        _http_client.close()
+        _http_client = None
 
 
 def _requisicao(
@@ -38,9 +56,8 @@ def _requisicao(
     exigir_mercado_pago()
     headers = {"X-Idempotency-Key": idempotency_key} if idempotency_key else {}
     try:
-        with _client() as client:
-            # Retry seguro: criação de pagamento leva X-Idempotency-Key
-            resp = com_retry(lambda: client.request(metodo, caminho, json=json, headers=headers))
+        # Retry seguro: criação de pagamento leva X-Idempotency-Key
+        resp = com_retry(lambda: _get_client().request(metodo, caminho, json=json, headers=headers))
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="PSP de pagamento inacessível")
 

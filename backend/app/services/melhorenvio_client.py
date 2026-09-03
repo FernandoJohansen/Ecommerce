@@ -5,6 +5,8 @@ Envio). A API exige um User-Agent com e-mail de contato técnico. Produção em
 melhorenvio.com.br; sandbox em sandbox.melhorenvio.com.br.
 """
 
+import threading
+
 import httpx
 from fastapi import HTTPException
 
@@ -16,6 +18,9 @@ from app.core.config import (
 )
 from app.core.retry import com_retry
 
+_http_client: httpx.Client | None = None
+_client_lock = threading.Lock()
+
 
 def exigir_melhor_envio() -> None:
     if not MELHOR_ENVIO_ENABLED:
@@ -23,6 +28,30 @@ def exigir_melhor_envio() -> None:
             status_code=503,
             detail="Cálculo de frete indisponível no momento.",
         )
+
+
+def _get_client() -> httpx.Client:
+    global _http_client
+    if _http_client is None:
+        with _client_lock:
+            if _http_client is None:
+                _http_client = httpx.Client(
+                    base_url=MELHOR_ENVIO_BASE_URL,
+                    headers={
+                        "Authorization": f"Bearer {MELHOR_ENVIO_TOKEN}",
+                        "Accept": "application/json",
+                        "User-Agent": f"Carolina Viapiana ({MELHOR_ENVIO_CONTATO or 'sem contato'})",
+                    },
+                    timeout=20.0,
+                )
+    return _http_client
+
+
+def close_client() -> None:
+    global _http_client
+    if _http_client is not None:
+        _http_client.close()
+        _http_client = None
 
 
 def calcular_frete(
@@ -46,18 +75,11 @@ def calcular_frete(
             "own_hand": False,
         },
     }
-    headers = {
-        "Authorization": f"Bearer {MELHOR_ENVIO_TOKEN}",
-        "Accept": "application/json",
-        "User-Agent": f"Carolina Viapiana ({MELHOR_ENVIO_CONTATO or 'sem contato'})",
-    }
     try:
         resp = com_retry(
-            lambda: httpx.post(
-                f"{MELHOR_ENVIO_BASE_URL}/api/v2/me/shipment/calculate",
+            lambda: _get_client().post(
+                "/api/v2/me/shipment/calculate",
                 json=payload,
-                headers=headers,
-                timeout=20.0,
             )
         )
     except httpx.HTTPError:
