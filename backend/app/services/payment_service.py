@@ -2,7 +2,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+
 
 import segno
 from fastapi import HTTPException
@@ -11,10 +11,6 @@ from app.core.config import (
     MERCADO_PAGO_ENABLED,
     MERCADO_PAGO_MAX_PARCELAS,
     MERCADO_PAGO_WEBHOOK_URL,
-    PIX_BENEFICIARIO,
-    PIX_KEY,
-    PIX_WEBHOOK_URL,
-    SICREDI_ENABLED,
 )
 from app.core.payment_token import token_pagamento_valido
 from app.core.roles import ROLE_STAFF, role_at_least
@@ -23,21 +19,19 @@ from app.repositories.order_repository import get_pedido_by_id, update_pedido
 from app.repositories.payment_repository import (
     count_pagamentos_recusados_ip,
     get_pagamento_by_mp_id,
-    get_pagamento_by_txid,
     get_pagamentos_by_pedido,
     get_pagamentos_by_pedido_metodo,
     get_pagamentos_pendentes_antigos,
     insert_pagamento,
-    update_pagamento,
     update_pagamento_by_id,
 )
 from app.repositories.webhook_repository import webhook_evento_novo
 from app.schemas.payment import PagamentoBoletoCreate, PagamentoCartaoCreate
-from app.services import mercadopago_client, sicredi_client
+from app.services import mercadopago_client
 
 logger = logging.getLogger(__name__)
 
-# Prazo de validade da cobrança PIX (calendario.expiracao, em segundos)
+# Prazo de validade da cobrança PIX (MP date_of_expiration), em segundos
 EXPIRACAO_SEGUNDOS = 86400
 
 # Vencimento do boleto (Mercado Pago exige data com offset; boleto compensa
@@ -89,23 +83,15 @@ def _checar_velocity(ip_origem: str, pedido_id: str) -> None:
         )
 
 
-def get_pix_info() -> dict:
-    return {
-        "chave": PIX_KEY,
-        "beneficiario": PIX_BENEFICIARIO,
-        "instrucoes": "Após o pagamento, envie o comprovante pelo WhatsApp.",
-    }
-
-
 def _qrcode_data_uri(brcode: str | None) -> str | None:
     if not brcode:
         return None
     return segno.make(brcode).svg_data_uri(scale=4)
 
 
-def _resposta(row: dict) -> dict:
+def _resposta_pix_mp(row: dict) -> dict:
     return {
-        "txid": row["txid"],
+        "txid": row.get("mp_payment_id") or "",
         "pedido_id": row["pedido_id"],
         "status": row["status"],
         "valor_centavos": row["valor_centavos"],
@@ -115,8 +101,14 @@ def _resposta(row: dict) -> dict:
 
 
 def _cobranca_vigente(row: dict) -> bool:
-    if row["status"] != "ATIVA":
+    if row["status"] != "pending":
         return False
+    expiracao = (row.get("detalhes") or {}).get("expiracao")
+    if expiracao:
+        try:
+            return datetime.now(timezone.utc) < datetime.fromisoformat(expiracao)
+        except ValueError:
+            pass
     criado_em = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
     return datetime.now(timezone.utc) < criado_em + timedelta(seconds=EXPIRACAO_SEGUNDOS)
 
@@ -155,43 +147,58 @@ def _validar_pedido_para_pagamento(pedido_id: str) -> dict:
 
 
 def criar_cobranca_pix(pedido_id: str, user, token_pagamento: str | None) -> dict:
-    # Antes de validar: os 409/422 de status revelariam dados do pedido
     exigir_acesso_pedido(pedido_id, user, token_pagamento)
+    mercadopago_client.exigir_mercado_pago()
     pedido = _validar_pedido_para_pagamento(pedido_id)
     if _pedido_ja_aprovado(pedido_id):
         raise HTTPException(status_code=409, detail="Este pedido já está pago")
 
-    # Reaproveita a cobrança ativa mais recente dentro do prazo, para o cliente
-    # que recarrega a página não gerar uma nova cobrança a cada visita.
-    for existente in get_pagamentos_by_pedido(pedido_id):
+    for existente in get_pagamentos_by_pedido_metodo(pedido_id, "pix"):
         if _cobranca_vigente(existente):
-            return _resposta(existente)
+            return _resposta_pix_mp(existente)
 
-    # txid do Bacen: 26–35 caracteres alfanuméricos; uuid4().hex tem 32
-    txid = uuid4().hex
-    cob = sicredi_client.criar_cob(
-        txid=txid,
-        valor_centavos=pedido["total_centavos"],
-        chave=PIX_KEY,
-        descricao="Pedido Carolina Viapiana",
-        expiracao=EXPIRACAO_SEGUNDOS,
+    expiracao = datetime.now(timezone.utc) + timedelta(seconds=EXPIRACAO_SEGUNDOS)
+    email_pagador = (
+        pedido.get("email_cliente")
+        or f"pix+{pedido_id[:8]}@pagamento.carolinaviapiana.com.br"
     )
+    payload = {
+        "transaction_amount": round(pedido["total_centavos"] / 100, 2),
+        "payment_method_id": "pix",
+        "payer": {"email": email_pagador},
+        "date_of_expiration": expiracao.strftime("%Y-%m-%dT%H:%M:%S.000-03:00"),
+        "external_reference": pedido_id,
+        "description": "Pedido Carolina Viapiana",
+    }
+    if MERCADO_PAGO_WEBHOOK_URL:
+        payload["notification_url"] = MERCADO_PAGO_WEBHOOK_URL
+
+    idempotency_key = _idempotency_key(pedido_id, "pix")
+    logger.info(
+        "payment.initiated method=pix pedido_id=%s valor_centavos=%d",
+        pedido_id, pedido["total_centavos"],
+    )
+    mp = mercadopago_client.criar_pagamento(payload, idempotency_key=idempotency_key)
+
+    pix_data = (mp.get("point_of_interaction") or {}).get("transaction_data") or {}
     row = insert_pagamento(
         {
             "pedido_id": pedido_id,
-            "txid": txid,
+            "metodo": "pix",
+            "mp_payment_id": str(mp["id"]),
             "valor_centavos": pedido["total_centavos"],
-            "status": cob.get("status", "ATIVA"),
-            "brcode": cob.get("pixCopiaECola"),
+            "status": mp.get("status", "pending"),
+            "brcode": pix_data.get("qr_code"),
+            "detalhes": {"expiracao": expiracao.isoformat()},
         }
     )
     if not row:
         raise HTTPException(status_code=500, detail="Falha ao registrar pagamento")
     logger.info(
-        "payment.initiated method=pix pedido_id=%s txid=%s valor_centavos=%d",
-        pedido_id, txid, pedido["total_centavos"],
+        "payment.initiated method=pix pedido_id=%s mp_payment_id=%s valor_centavos=%d",
+        pedido_id, row.get("mp_payment_id"), pedido["total_centavos"],
     )
-    return _resposta(row)
+    return _resposta_pix_mp(row)
 
 
 def _marcar_pedido_pago(pedido_id: str) -> None:
@@ -203,95 +210,28 @@ def _marcar_pedido_pago(pedido_id: str) -> None:
         email_service.enviar_pagamento_confirmado(pedido)
 
 
-def _aplicar_status_cob(row: dict, cob: dict) -> dict:
-    """Sincroniza a linha local com o status da cobrança no Sicredi; quando o
-    pagamento é confirmado, marca o pedido como pago."""
-    status = cob.get("status")
-    if not status or status == row["status"]:
-        return row
-
-    data: dict = {"status": status}
-    if status == "CONCLUIDA":
-        pix_recebidos = cob.get("pix") or []
-        data["e2eid"] = pix_recebidos[0].get("endToEndId") if pix_recebidos else None
-        data["pago_em"] = datetime.now(timezone.utc).isoformat()
-    atualizado = update_pagamento(row["txid"], data) or {**row, **data}
-
-    if status == "CONCLUIDA":
-        _marcar_pedido_pago(row["pedido_id"])
-    return atualizado
-
-
-def consultar_pagamento(txid: str, user, token_pagamento: str | None) -> dict:
-    row = get_pagamento_by_txid(txid)
+def consultar_pagamento(mp_id: str, user, token_pagamento: str | None) -> dict:
+    row = get_pagamento_by_mp_id(mp_id)
     if not row:
         raise HTTPException(status_code=404, detail="Pagamento não encontrado")
     exigir_acesso_pedido(
         row["pedido_id"], user, token_pagamento, detail="Pagamento não encontrado"
     )
-    if row["status"] == "ATIVA":
+    if _situacao(row) == "pendente":
         try:
-            cob = sicredi_client.consultar_cob(txid)
+            mp = mercadopago_client.consultar_pagamento(mp_id)
         except HTTPException:
-            # PSP fora do ar não deve quebrar o polling; devolve o estado local
-            return _resposta(row)
-        row = _aplicar_status_cob(row, cob)
-    return _resposta(row)
+            return _resposta_pix_mp(row)
+        row = _aplicar_status_mp(row, mp)
+    return _resposta_pix_mp(row)
 
 
-_MAX_PIX_ENTRIES = 100
-
-
-def processar_webhook_pix(payload: dict) -> dict:
-    """Notificação de PIX recebido. O corpo do POST não é confiável por si só:
-    para cada txid notificado, o status é reconferido direto no Sicredi antes
-    de marcar qualquer coisa como paga."""
-    entradas = payload.get("pix") or []
-    if len(entradas) > _MAX_PIX_ENTRIES:
-        logger.warning("webhook.pix.oversized entries=%d (max=%d)", len(entradas), _MAX_PIX_ENTRIES)
-        return {"processados": 0}
-
-    processados = 0
-    for pix in entradas:
-        txid = pix.get("txid")
-        if not txid:
-            continue
-        # Usa o endToEndId como chave de idempotência por entrada; pagamentos
-        # já têm um índice único em e2eid, então é a chave natural de dedup.
-        e2eid = pix.get("endToEndId")
-        if e2eid:
-            if not webhook_evento_novo(e2eid, "sicredi"):
-                logger.info("webhook.pix.duplicate e2eid=%s", e2eid)
-                continue
-        row = get_pagamento_by_txid(txid)
-        if not row or row["status"] != "ATIVA":
-            continue
-        try:
-            cob = sicredi_client.consultar_cob(txid)
-        except HTTPException:
-            continue
-        _aplicar_status_cob(row, cob)
-        processados += 1
-    return {"processados": processados}
-
-
-def registrar_webhook() -> dict:
-    if not PIX_WEBHOOK_URL:
-        raise HTTPException(status_code=422, detail="PIX_WEBHOOK_URL não configurada")
-    sicredi_client.configurar_webhook(PIX_KEY, PIX_WEBHOOK_URL)
-    return {"chave": PIX_KEY, "webhookUrl": PIX_WEBHOOK_URL}
-
-
-def consultar_webhook() -> dict:
-    return sicredi_client.consultar_webhook(PIX_KEY)
-
-
-# ── Mercado Pago (cartão de crédito + boleto) ────────────────────────────────
+# ── Mercado Pago (PIX + cartão de crédito + boleto) ─────────────────────────
 
 
 def listar_metodos() -> dict:
     return {
-        "pix": SICREDI_ENABLED,
+        "pix": MERCADO_PAGO_ENABLED,
         "cartao": MERCADO_PAGO_ENABLED,
         "boleto": MERCADO_PAGO_ENABLED,
         "max_parcelas": MERCADO_PAGO_MAX_PARCELAS,
@@ -314,14 +254,8 @@ def resumo_pedido_para_pagamento(pedido_id: str, user, token_pagamento: str | No
 
 
 def _situacao(row: dict) -> str:
-    """Normaliza o status nativo do PSP (Bacen ou MP) para o frontend."""
+    """Normaliza o status nativo do MP para o frontend."""
     status = row["status"]
-    if row.get("metodo", "pix") == "pix":
-        if status == "ATIVA":
-            return "pendente"
-        if status == "CONCLUIDA":
-            return "aprovado"
-        return "cancelado"  # REMOVIDA_*
     if status in ("pending", "in_process", "authorized"):
         return "pendente"
     if status == "approved":
@@ -638,22 +572,10 @@ def processar_webhook_mercadopago(payment_id: str, event_id: str | None = None) 
 
 
 def sincronizar_pagamentos_pendentes() -> int:
-    """Fallback poll: reconcile pending PIX and MP payments that may have missed
-    their webhook. Called from the background loop in main.py."""
+    """Fallback poll: reconcile pending MP payments that may have missed their webhook.
+    Called from the background loop in main.py."""
     sincronizados = 0
-
-    for row in get_pagamentos_pendentes_antigos("pix", minutos=5):
-        txid = row.get("txid")
-        if not txid:
-            continue
-        try:
-            cob = sicredi_client.consultar_cob(txid)
-            _aplicar_status_cob(row, cob)
-            sincronizados += 1
-        except HTTPException:
-            pass
-
-    for metodo in ("cartao", "boleto"):
+    for metodo in ("pix", "cartao", "boleto"):
         for row in get_pagamentos_pendentes_antigos(metodo, minutos=10):
             mp_id = row.get("mp_payment_id")
             if not mp_id:
@@ -664,7 +586,6 @@ def sincronizar_pagamentos_pendentes() -> int:
                 sincronizados += 1
             except HTTPException:
                 pass
-
     if sincronizados:
         logger.info("Fallback poll sincronizou %d pagamento(s) pendente(s)", sincronizados)
     return sincronizados

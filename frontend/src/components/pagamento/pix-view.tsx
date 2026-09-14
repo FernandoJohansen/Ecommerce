@@ -39,13 +39,13 @@ export function PixView({ pedidoId }: { pedidoId: string }) {
     queryKey: ["pix-status", txid],
     queryFn: () => apiFetch(`/pagamento/pix/${txid}`, { headers: headersPagamento(pedidoId) }),
     enabled: !!txid,
-    refetchInterval: (query) => (query.state.data?.status === "ATIVA" ? 5000 : false),
+    refetchInterval: (query) => (query.state.data?.status === "pending" ? 5000 : false),
   });
 
   const cobranca = status.data ?? criar.data;
   const indisponivel = criar.error instanceof ApiError && criar.error.status === 503;
-  const pago = cobranca?.status === "CONCLUIDA";
-  const removida = cobranca !== undefined && cobranca.status.startsWith("REMOVIDA");
+  const pago = cobranca?.status === "approved";
+  const removida = cobranca !== undefined && cobranca.status === "cancelled";
 
   const copiar = async () => {
     if (!cobranca?.brcode) return;
@@ -122,7 +122,7 @@ export function PixView({ pedidoId }: { pedidoId: string }) {
         </>
       )}
 
-      {cobranca && cobranca.status === "ATIVA" && (
+      {cobranca && cobranca.status === "pending" && (
         <>
           <p className="serif mb-2 text-2xl">Pague com PIX</p>
           <p className="mb-6 text-sm text-muted-foreground">

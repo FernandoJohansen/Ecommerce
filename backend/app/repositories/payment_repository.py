@@ -57,7 +57,7 @@ def update_pagamento_by_id(pagamento_id: str, data: dict) -> dict:
 def get_pagamentos_pendentes_antigos(metodo: str, minutos: int) -> list[dict]:
     """Return pending payments older than `minutos` minutes (for fallback poll)."""
     cutoff = (datetime.now(timezone.utc) - timedelta(minutes=minutos)).isoformat()
-    status = "ATIVA" if metodo == "pix" else "pending"
+    status = "pending"
     result = (
         supabase.table("pagamentos")
         .select("*")

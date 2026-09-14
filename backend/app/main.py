@@ -30,7 +30,7 @@ from app.core.config import (
 )
 from app.core.ratelimit import limiter, rate_limit_handler
 from app.core.securityheaders import SecurityHeadersMiddleware
-from app.services import melhorenvio_client, mercadopago_client, sicredi_client
+from app.services import melhorenvio_client, mercadopago_client
 from app.services.email_service import close_client as close_email_client
 from app.services.expiracao_service import expirar_pedidos_nao_pagos
 from app.services.payment_service import sincronizar_pagamentos_pendentes
@@ -150,7 +150,6 @@ async def lifespan(_app: FastAPI):
     yield
     for task in tasks:
         task.cancel()
-    sicredi_client.close_client()
     mercadopago_client.close_client()
     melhorenvio_client.close_client()
     close_email_client()

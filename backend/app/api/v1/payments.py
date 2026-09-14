@@ -10,7 +10,7 @@ from app.core.config import (
     WEBHOOK_REQUIRE_SIGNATURE,
 )
 from app.core.ratelimit import _client_ip, limiter
-from app.dependencies.auth import get_optional_user, get_staff_user
+from app.dependencies.auth import get_optional_user
 from app.schemas.payment import (
     CobrancaPixCreate,
     CobrancaPixResponse,
@@ -18,22 +18,16 @@ from app.schemas.payment import (
     PagamentoBoletoCreate,
     PagamentoCartaoCreate,
     PagamentoMpResponse,
-    PixResponse,
     ResumoPedidoPagamento,
 )
-from app.services.audit_service import registrar_auditoria
 from app.services.payment_service import (
     consultar_pagamento,
     consultar_pagamento_mp,
-    consultar_webhook,
     criar_cobranca_pix,
     criar_pagamento_boleto,
     criar_pagamento_cartao,
-    get_pix_info,
     listar_metodos,
     processar_webhook_mercadopago,
-    processar_webhook_pix,
-    registrar_webhook,
     resumo_pedido_para_pagamento,
 )
 
@@ -57,11 +51,6 @@ async def get_metodos():
 @router.get("/resumo/{pedido_id}", response_model=ResumoPedidoPagamento)
 def get_resumo(request: Request, pedido_id: str, user=Depends(get_optional_user)):
     return resumo_pedido_para_pagamento(pedido_id, user, _token_pagamento(request))
-
-
-@router.get("/pix", response_model=PixResponse)
-async def get_pix():
-    return get_pix_info()
 
 
 # Criação de pagamento atende convidado (autorizado pelo token de pagamento)
@@ -99,16 +88,6 @@ def post_pagamento_boleto(
 def get_pagamento_mp(request: Request, response: Response, mp_payment_id: str, user=Depends(get_optional_user)):
     response.headers["Cache-Control"] = "no-store"
     return consultar_pagamento_mp(mp_payment_id, user, _token_pagamento(request))
-
-
-# O Sicredi envia as notificações em {webhookUrl}/pix; o webhookUrl registrado
-# aponta para .../api/pagamento/webhook. O corpo não é confiável por si só —
-# o serviço reconfere cada txid direto no Sicredi antes de confirmar.
-@router.post("/webhook/pix")
-@limiter.limit("60/minute")
-def post_webhook_pix(request: Request, body: dict | None = Body(default=None)):
-    payload = body if isinstance(body, dict) else {}
-    return processar_webhook_pix(payload)
 
 
 def _validar_assinatura_mp(request: Request, data_id: str) -> None:
@@ -184,15 +163,3 @@ def post_webhook_mercadopago(request: Request, body: dict | None = Body(default=
         return {"processados": 0}
     mp_event_id = request.headers.get("x-request-id") or str(data_id)
     return processar_webhook_mercadopago(str(data_id), event_id=mp_event_id)
-
-
-@router.put("/webhook")
-def put_webhook(user=Depends(get_staff_user)):
-    result = registrar_webhook()
-    registrar_auditoria(user, "pix.webhook.registrar", "webhook", None, result)
-    return result
-
-
-@router.get("/webhook")
-def get_webhook(_user=Depends(get_staff_user)):
-    return consultar_webhook()

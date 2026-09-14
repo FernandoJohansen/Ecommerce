@@ -13,12 +13,6 @@ def _valida_email(v: str) -> str:
     return email
 
 
-class PixResponse(BaseModel):
-    chave: str
-    beneficiario: str
-    instrucoes: str
-
-
 class CobrancaPixCreate(BaseModel):
     pedido_id: str
 
