@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-10-10T23:08:31.224Z",
+  "phase": "10",
+  "phase_name": "production-deploy",
+  "phase_dir": ".planning/phases/CV-10-production-deploy",
+  "plan": 7,
+  "task": 3,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": "10-01", "name": "GET /health/db + scripts/smoke.sh", "status": "done", "commit": "0276a55"},
+    {"id": "10-02", "name": "DEPLOY.md runbook rewrite", "status": "done", "commit": "56f2ffe"},
+    {"id": "10-03", "name": "Toolchain + credentials rotation", "status": "done", "commit": "a65ccc8"},
+    {"id": "10-04", "name": "Local Supabase, encrypted prod backup, prod-vs-replay schema diff", "status": "done", "commit": "c64ab7c"},
+    {"id": "10-07.1", "name": "Push approval", "status": "done", "commit": null},
+    {"id": "10-07.2", "name": "Push main + CI green (run 38083817719, headSha a65ccc8)", "status": "done", "commit": "a65ccc8"},
+    {"id": "10-07.3", "name": "Fernando creates Render service; agent runs smoke.sh", "status": "in_progress", "progress": "Steps presented to Fernando; awaiting Render URL"}
+  ],
+  "remaining_tasks": [
+    {"id": "10-07.3", "name": "Smoke-test Render URL (scripts/smoke.sh <url>, /docs = 404), write 10-07-SUMMARY.md", "status": "not_started"},
+    {"id": "10-05", "name": "Apply gap_fix.sql, CLI baseline from prod dump, seed, archive legacy migrations (wave 3)", "status": "not_started"},
+    {"id": "10-08", "name": "First manual frontend deploy to Workers + Cloudflare Access (wave 3)", "status": "not_started"},
+    {"id": "10-09", "name": "Rate-limit IP check behind Render + UptimeRobot (wave 3)", "status": "not_started"},
+    {"id": "10-06", "name": "Adopt CLI migration history on prod + clean test data (wave 4)", "status": "not_started"},
+    {"id": "10-10", "name": "Automatic frontend deploy after CI + final smoke (wave 5)", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "Render service not created yet; Wave 2 cannot close and 10-08/10-09 need the URL", "type": "human_action", "workaround": null}
+  ],
+  "human_actions_pending": [
+    {"action": "Create Render web service per 10-07 Task 3 (Docker, root backend, Virginia, Free, env vars, health check /, Auto-Deploy After CI Checks Pass) and reply with the URL", "context": "DEPLOY-01/03", "blocking": true},
+    {"action": "Check backend/.env SUPABASE_URL / SUPABASE_DB_URL match the dashboard", "context": "Ref derived from SUPABASE_URL was rejected by the pooler (tenant not found)", "blocking": false},
+    {"action": "Review backups/schema/gap_fix.sql before applying it in 10-05", "context": "Prod lacks 2026-09-13_mp_pix_constraint.sql; PIX inserts fail in prod until applied", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Wave 2 plans run on the main tree, not worktrees", "rationale": "10-04 outputs are gitignored files in backups/ and would be lost with the worktree", "phase": "10"},
+    {"decision": "10-04 Task 3 executed inline by orchestrator", "rationale": "Executor isolation guard requires worktree; dumps exist only in main tree", "phase": "10"},
+    {"decision": "Prod schema is truth for baseline; pedidos.cpf (only in replay, unused) is not re-added", "rationale": "D-24 diff", "phase": "10"},
+    {"decision": "Fernando runs all prod-touching commands himself via hidden-prompt scripts", "rationale": "T-10-12 (agent never handles DB URL/passphrase); auto mode blocks agent prod access", "phase": "10"}
+  ],
+  "uncommitted_files": ["frontend/bun.lock (unrelated, intentionally left out)"],
+  "next_action": "Ask Fernando for the Render URL; run scripts/smoke.sh <url> and curl /docs (expect 404); write 10-07-SUMMARY.md; then start Wave 3 (10-05, 10-08, 10-09)",
+  "context_notes": "Local main is 3 commits ahead of origin (dda8283, c64ab7c, 4059095 + this WIP). Local Supabase stack still running in Docker (ports 54321-54324)."
+}
