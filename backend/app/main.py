@@ -27,6 +27,7 @@ from app.core.config import (
     MERCADO_PAGO_WEBHOOK_SECRET,
     WEBHOOK_REQUIRE_SIGNATURE,
 )
+from app.core.database import supabase
 from app.core.ratelimit import limiter, rate_limit_handler
 from app.core.securityheaders import SecurityHeadersMiddleware
 from app.services import melhorenvio_client, mercadopago_client
@@ -205,4 +206,15 @@ app.include_router(api_router)
 
 @app.get("/")
 async def health():
+    return {"status": "ok"}
+
+
+@app.get("/health/db")
+@limiter.limit("30/minute")
+def health_db(request: Request):
+    try:
+        supabase.table("aromas").select("id").limit(1).execute()
+    except Exception:
+        logger.warning("health/db falhou", exc_info=True)
+        return JSONResponse(status_code=503, content={"status": "error"})
     return {"status": "ok"}
