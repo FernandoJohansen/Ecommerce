@@ -55,6 +55,12 @@ Not in this phase: Mercado Pago credentials (Phase 11), removing the WhatsApp or
 - **D-25:** Rollback via **platform buttons** — Render "Rollback" and `wrangler rollback` — documented in `docs/DEPLOY.md`; then fix forward with a git revert.
 - **D-26:** Post-deploy smoke test = **small curl script** (`/`, `/health/db`, `/api/produtos`, security headers on the site) **+ manual UI pass** (login, cart, checkout).
 
+### Post-research amendments (2026-10-10, approved by Fernando)
+- **D-27:** Migrations baseline (refines D-11/D-23/D-24): dump prod schema, diff against a local replay of `schema.sql` + migrations, fix any gap, then commit the verified dump as a single `supabase/migrations/<14-digit-ts>_baseline.sql`; mark it applied on prod with `supabase migration repair --status applied`; extract seed data into `supabase/seed.sql`; archive the 18 legacy files from `backend/migrations/`. New migrations after this use the CLI timestamp format.
+- **D-28:** Render region = **Virginia (US East)** — supersedes D-04 (Supabase is in `sa-east-1`; Render has no South America region).
+- **D-29:** UptimeRobot interval = **5 min** — supersedes the 10 min in D-03/D-17.
+- **D-30:** **Rotate the Supabase pooler/DB password in this phase**, before the D-13 backup and before secrets go into Render.
+
 ### Claude's Discretion
 - Exact Render service settings (instance name, env var grouping), uvicorn proxy-header flags so HTTPS/forwarded IPs are correct behind Render.
 - How `/health/db` queries (cheapest read) and its rate limit value.
