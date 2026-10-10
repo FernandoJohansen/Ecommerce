@@ -25,7 +25,6 @@ from app.core.config import (
     ENABLE_API_DOCS,
     MERCADO_PAGO_ENABLED,
     MERCADO_PAGO_WEBHOOK_SECRET,
-    SICREDI_ENABLED,
     WEBHOOK_REQUIRE_SIGNATURE,
 )
 from app.core.ratelimit import limiter, rate_limit_handler
@@ -141,7 +140,7 @@ async def lifespan(_app: FastAPI):
             )
     # Sem PSP configurado, todo pedido é negociado manualmente pelo WhatsApp e
     # não deve expirar (comportamento de antes do Sprint 6).
-    psp_ativo = SICREDI_ENABLED or MERCADO_PAGO_ENABLED
+    psp_ativo = MERCADO_PAGO_ENABLED
     tasks = []
     if psp_ativo:
         tasks.append(asyncio.create_task(_expirar_pedidos_loop()))

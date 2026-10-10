@@ -65,7 +65,7 @@ CI (`.github/workflows/ci.yml`) runs lint + build for the frontend and a compile
 
 ## Deployment
 
-**Full go-live runbook: [`docs/DEPLOY.md`](docs/DEPLOY.md)** — ordered phases for backend, frontend, payments (Sicredi PIX, Mercado Pago), shipping (Melhor Envio), domain/DNS and post-launch operations.
+**Full go-live runbook: [`docs/DEPLOY.md`](docs/DEPLOY.md)** — ordered phases for backend, frontend, payments (Mercado Pago: PIX, card, boleto), shipping (Melhor Envio), domain/DNS and post-launch operations.
 
 - **Frontend:** Cloudflare Workers via the manual `Deploy Frontend` GitHub Action. Requires the `CLOUDFLARE_API_TOKEN` repo secret **and** the `VITE_API_URL` repo variable (public backend URL — the workflow fails without it, since the bundle bakes the API origin in at build time).
 - **Backend:** Docker image (`backend/Dockerfile`), deployable to Railway/Render. Set the env vars from `backend/.env.example`.

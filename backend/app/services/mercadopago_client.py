@@ -5,6 +5,8 @@ OAuth nem mTLS. POST /v1/payments exige o header X-Idempotency-Key; sem ele
 o MP responde 400.
 """
 
+import threading
+
 import httpx
 from fastapi import HTTPException
 
@@ -14,9 +16,6 @@ from app.core.config import (
     MERCADO_PAGO_ENABLED,
 )
 from app.core.retry import com_retry
-
-
-import threading
 
 _http_client: httpx.Client | None = None
 _client_lock = threading.Lock()

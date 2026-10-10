@@ -27,5 +27,11 @@ _KEY = os.environ["SUPABASE_KEY"]
 
 @pytest.fixture(scope="session")
 def db():
-    """Fresh Supabase client using real credentials."""
+    """Fresh Supabase client using real credentials.
+
+    Skips when backend/.env is absent (e.g. CI), since the mock credentials
+    from the root conftest point at a database that doesn't exist.
+    """
+    if not _env_file.exists():
+        pytest.skip("integration tests need real credentials in backend/.env")
     return create_client(_URL, _KEY)

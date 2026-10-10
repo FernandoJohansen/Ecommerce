@@ -59,7 +59,7 @@ arquivos SQL versionados no repositório.
 
 ## Integrações (planejadas, ainda não implementadas)
 
-- **Sicredi PIX** — pagamentos (Sprint 6; hoje `/api/pagamento/pix`
-  retorna chave estática).
+- **Mercado Pago** — pagamentos PIX, cartão e boleto (implementado; o
+  Sicredi PIX foi substituído em 13/09/2026).
 - **Melhor Envio** — frete (Sprint 7).
 - **eNotas ou Nuvem Fiscal** — emissão de NFe (Sprint 8).

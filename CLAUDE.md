@@ -39,12 +39,12 @@ Ecommerce/
 │   │   ├── models/                  # Pydantic DB-entity models (what Supabase returns)
 │   │   ├── schemas/                 # Pydantic API schemas (request/response)
 │   │   ├── repositories/            # Raw Supabase queries
-│   │   ├── services/                # Business logic; clients: MercadoPago, MelhorEnvio, Sicredi
+│   │   ├── services/                # Business logic; clients: MercadoPago, MelhorEnvio
 │   │   ├── dependencies/            # FastAPI dependency functions (e.g. auth)
 │   │   └── main.py                  # App factory, middleware, router registration
 │   ├── migrations/                  # Dated SQL migration files
 │   ├── scripts/                     # Admin helper scripts (e.g. conceder_admin.py)
-│   ├── certs/                       # TLS certs (Sicredi mTLS)
+│   ├── certs/                       # TLS certs (legacy, gitignored)
 │   ├── schema.sql                   # Supabase schema + seed data
 │   ├── Dockerfile
 │   └── requiriments.txt             # Python dependencies (note the typo)

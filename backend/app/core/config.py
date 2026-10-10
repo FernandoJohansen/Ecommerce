@@ -12,28 +12,8 @@ ALLOWED_ORIGINS: list[str] = [
     if o.strip()
 ]
 FRONTEND_URL: str = os.getenv("FRONTEND_URL", ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "http://localhost:5173")
-PIX_KEY: str = os.getenv("PIX_KEY", "")
-PIX_BENEFICIARIO: str = os.getenv("PIX_BENEFICIARIO", "Carolina Viapiana")
-
-# API Pix Sicredi (OAuth2 client_credentials + mTLS). Sem credenciais, os
-# endpoints de cobrança respondem 503 e o resto da API segue funcionando.
-SICREDI_BASE_URL: str = os.getenv("SICREDI_BASE_URL", "https://api-pix.sicredi.com.br")
-SICREDI_CLIENT_ID: str = os.getenv("SICREDI_CLIENT_ID", "")
-SICREDI_CLIENT_SECRET: str = os.getenv("SICREDI_CLIENT_SECRET", "")
-SICREDI_CERT_PATH: str = os.getenv("SICREDI_CERT_PATH", "")
-SICREDI_KEY_PATH: str = os.getenv("SICREDI_KEY_PATH", "")
-# Cadeia completa Sicredi (opcional; usada como CA extra na verificação TLS)
-SICREDI_CA_PATH: str = os.getenv("SICREDI_CA_PATH", "")
-# URL pública deste backend registrada no webhook do Sicredi; as notificações
-# chegam em {PIX_WEBHOOK_URL}/pix
-PIX_WEBHOOK_URL: str = os.getenv("PIX_WEBHOOK_URL", "")
-
-SICREDI_ENABLED: bool = bool(
-    SICREDI_CLIENT_ID and SICREDI_CLIENT_SECRET and SICREDI_CERT_PATH and SICREDI_KEY_PATH
-)
-
-# Mercado Pago (cartão de crédito + boleto). Sem access token, os endpoints
-# de cartão/boleto respondem 503 e o PIX segue funcionando normalmente.
+# Mercado Pago (PIX, cartão de crédito e boleto). Sem access token, os
+# endpoints de pagamento respondem 503 e o pedido segue pelo WhatsApp.
 MERCADO_PAGO_BASE_URL: str = os.getenv("MERCADO_PAGO_BASE_URL", "https://api.mercadopago.com")
 MERCADO_PAGO_ACCESS_TOKEN: str = os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "")
 # Assinatura secreta da tela de Webhooks do painel MP (opcional; habilita a
