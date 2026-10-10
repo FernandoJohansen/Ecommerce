@@ -16,6 +16,7 @@ operational routines. v2.0 adds fiscal invoices and fulfilment automation after 
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -51,95 +52,131 @@ Built before GSD was adopted; details in `PENDENCIAS.txt` and git history. No PL
 ## Phase Details
 
 ### Phase 10: Production Deploy
+
 **Goal**: Backend and frontend run in production on their default URLs (Render/Railway + workers.dev) with the WhatsApp fallback flow working
 **Depends on**: Phase 9
 **Requirements**: DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-04, DEPLOY-05
 **Success Criteria** (what must be TRUE):
+
   1. `curl https://<backend>/` returns `{"status":"ok"}` and `/api/produtos` returns the catalog
   2. The workers.dev site loads the catalog, login works, and checkout ends in the WhatsApp message
   3. CI is green on `main` and the frontend deploys automatically on push
   4. Production DB has every migration in `backend/migrations/` applied
+
 **Plans**: 10 plans
 Plans:
+**Wave 1**
+
 - [ ] 10-01-PLAN.md — `GET /health/db` + unit tests; reusable `scripts/smoke.sh`
 - [ ] 10-02-PLAN.md — `docs/DEPLOY.md` runbook: Render/Access/UptimeRobot steps, limits table, rollback, Supabase CLI flow
 - [ ] 10-03-PLAN.md — Verify Supabase CLI package, install Docker/pg tools, rotate DB password, secrets to password manager
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 10-04-PLAN.md — Local Supabase, encrypted prod backup, prod schema dump vs legacy replay diff
-- [ ] 10-05-PLAN.md — Close prod gaps, baseline migration + seed, archive legacy migrations, local `.env` + integration tests
-- [ ] 10-06-PLAN.md — [BLOCKING] Mark baseline applied on prod; restore-tested backup; transactional test-data cleanup
 - [ ] 10-07-PLAN.md — Push + green CI; Render service (Virginia, Free, After CI) with prod env; API smoke
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 10-05-PLAN.md — Close prod gaps, baseline migration + seed, archive legacy migrations, local `.env` + integration tests
 - [ ] 10-08-PLAN.md — First manual frontend deploy, Cloudflare Access gate, manual UI pass
 - [ ] 10-09-PLAN.md — XFF rate-limit verification behind Render; UptimeRobot 5-min monitor on `/health/db`
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 10-06-PLAN.md — [BLOCKING] Mark baseline applied on prod; restore-tested backup; transactional test-data cleanup
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 10-10-PLAN.md — CI-gated `workflow_run` frontend auto-deploy; final push and smoke
+
 **Runbook**: `docs/DEPLOY.md` Phases 1–2
 
 ### Phase 11: Payments Go-Live
+
 **Goal**: Customers pay online with PIX, card or boleto and the order turns `pago` automatically
 **Depends on**: Phase 10
 **Requirements**: PAY-01, PAY-02, PAY-03
 **Success Criteria** (what must be TRUE):
+
   1. A real PIX purchase (Varetas, R$ 8,00) shows a QR code and flips the order to `pago`
   2. A real card purchase and a boleto are created and reconciled
   3. Webhook calls without a valid signature are rejected; valid ones are processed once
   4. Unpaid `novo` orders expire after 24h and return stock
+
 **Plans**: TBD
 **Runbook**: `docs/DEPLOY.md` Phase 3
 
 ### Phase 12: Legal & Trust Pages
+
 **Goal**: The store meets Brazilian e-commerce disclosure rules and customers can reach the seller
 **Depends on**: Phase 10
 **Requirements**: LEGAL-01, LEGAL-02, LEGAL-03, LEGAL-04, LEGAL-05, LEGAL-06
 **Success Criteria** (what must be TRUE):
+
   1. Footer on every page shows legal name, CNPJ/CPF, email and phone
   2. Privacy, terms and exchanges/returns pages exist and are linked from the footer
   3. Signup and checkout reference the policies before submission
   4. "WhatsApp" mentions open a working `wa.me` chat with the store
+
 **Plans**: TBD
 **Needs from Carolina**: legal name, CNPJ, contact email/phone, WhatsApp number, returns policy terms
 
 ### Phase 13: Shipping & Email Activation
+
 **Goal**: Checkout charges real shipping and customers receive transactional emails
 **Depends on**: Phase 11
 **Requirements**: SHIP-01, MAIL-01
 **Success Criteria** (what must be TRUE):
+
   1. Checkout with a CEP from another state shows Melhor Envio options; orders ≥ R$ 300 show a free option
   2. Placing and paying an order sends emails that land in the inbox (not spam)
+
 **Plans**: TBD
 **Runbook**: `docs/DEPLOY.md` Phase 4
 
 ### Phase 14: Custom Domain & Auth Cookie
+
 **Goal**: The store is served from carolinaviapiana.com.br and auth tokens are no longer readable by JavaScript
 **Depends on**: Phase 11
 **Requirements**: DOM-01, DOM-02, DOM-03
 **Success Criteria** (what must be TRUE):
+
   1. `https://carolinaviapiana.com.br` and `www` load the site with a valid certificate
   2. `https://api.carolinaviapiana.com.br/` returns `{"status":"ok"}` and the site uses it
   3. Mercado Pago webhooks arrive at the new API URL
   4. After login, no JWT is present in localStorage; session works via HttpOnly cookie
+
 **Plans**: TBD
 **Runbook**: `docs/DEPLOY.md` Phase 5; `VULNERABILIDADES.txt` item 7
 
 ### Phase 15: QA, SEO & Polish
+
 **Goal**: The site works well on every device, is findable by search engines and shareable on social media
 **Depends on**: Phase 14
 **Requirements**: QA-01, QA-02, QA-03, QA-04, QA-05
 **Success Criteria** (what must be TRUE):
+
   1. Every route renders without horizontal scroll on a 360px phone
   2. `/robots.txt` and `/sitemap.xml` are served; shared links show a preview image
   3. Lighthouse accessibility ≥ 90 and LCP < 2.5s on the home page (mobile)
   4. Page views are recorded in the analytics dashboard
+
 **Plans**: TBD
 
 ### Phase 16: Operations Readiness
+
 **Goal**: The store can be operated and recovered safely after launch
 **Depends on**: Phase 10
 **Requirements**: OPS-01, OPS-02, OPS-03, OPS-04, OPS-05, OPS-06
 **Success Criteria** (what must be TRUE):
+
   1. A backup runs daily and one dump has been restored into a test project
   2. An uptime alert fires when the backend or site is down
   3. Supabase pooler password is new; new accounts must confirm email
   4. Admin stock matches physical stock
   5. Retention policy and refund procedure are written down
+
 **Plans**: TBD
 **Runbook**: `docs/DEPLOY.md` Phase 6
 

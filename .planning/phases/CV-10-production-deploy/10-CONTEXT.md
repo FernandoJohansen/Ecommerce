@@ -19,16 +19,16 @@ Not in this phase: Mercado Pago credentials (Phase 11), removing the WhatsApp or
 - **D-01:** Backend on **Render**, Docker web service from `backend/Dockerfile`, health check path `/`.
 - **D-02:** Render **Free plan permanently**. Upgrade only when concrete problems appear (hitting 750 h/month, unacceptable latency, 512 MB memory errors).
 - **D-03:** Keep the free instance awake with **UptimeRobot pinging every 10 min**, set up in this phase (pulled forward from Phase 16) so in-process background jobs (order expiry, MP fallback poll, LGPD anonymization) keep running.
-- **D-04:** Render region = **same region as the Supabase project** (researcher to look up the project's region).
+- **D-04 [informational]:** Render region = **same region as the Supabase project** (researcher to look up the project's region).
 - **D-05:** Cloudflare Workers **Free** plan.
 
 ### Account ownership
-- **D-06:** All production services (Cloudflare, Render, Supabase, UptimeRobot) live in **Fernando's accounts**; transfer to Carolina later. Supabase project is already in Fernando's account.
+- **D-06 [informational]:** All production services (Cloudflare, Render, Supabase, UptimeRobot) live in **Fernando's accounts**; transfer to Carolina later. Supabase project is already in Fernando's account.
 - **D-07:** Downtime and failed-deploy alerts go to **Fernando only**.
-- **D-08:** No handover checklist now — handle transfer when it happens.
+- **D-08 [informational]:** No handover checklist now — handle transfer when it happens.
 
 ### Environments & data
-- **D-09:** **Straight to production**, no staging stack.
+- **D-09 [informational]:** **Straight to production**, no staging stack.
 - **D-10:** **WhatsApp is only for FAQ/questions, never for orders or payment** (user rule, applies project-wide). In this phase, the deployed site is kept private so the existing WhatsApp checkout fallback never reaches a customer; the fallback itself is removed in Phase 12.
 - **D-11:** Local development uses **Local Supabase in Docker** (`supabase start`), seeded from `backend/schema.sql` + `backend/migrations/`. `backend/.env` no longer points at production.
 - **D-12:** Integration tests (`backend/tests/integration/`) run **against Local Supabase only**, never production; not added to CI.
