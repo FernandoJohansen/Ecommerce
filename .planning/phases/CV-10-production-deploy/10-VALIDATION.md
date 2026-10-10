@@ -38,12 +38,17 @@ created: 2026-10-10
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 10-xx | TBD | TBD | DEPLOY-01 | — | `/health/db` returns no data, generic 503 on failure, rate limited | unit | `cd backend && uv run pytest tests/test_health.py -q` | ❌ W0 | ⬜ pending |
-| 10-xx | TBD | TBD | DEPLOY-01 | — | N/A | smoke | `scripts/smoke.sh https://<api>` | ❌ W0 | ⬜ pending |
-| 10-xx | TBD | TBD | DEPLOY-02 | — | `VITE_API_URL` guard fails fast | manual dispatch | `gh workflow run "Deploy Frontend" && gh run watch` | manual | ⬜ pending |
-| 10-xx | TBD | TBD | DEPLOY-03 | — | CORS rejects foreign origins; rate-limit key is client IP | smoke | `curl -sI -H "Origin: https://evil.example" $API/api/produtos` (no ACAO) | ❌ W0 | ⬜ pending |
-| 10-xx | TBD | TBD | DEPLOY-04 | — | N/A | CLI | `supabase migration list` (all Local+Remote) | manual | ⬜ pending |
-| 10-xx | TBD | TBD | DEPLOY-05 | — | Deploy only after CI success on main | CI | `gh run list --workflow CI --branch main -L1` | manual | ⬜ pending |
+| 10-01-T1 | 10-01 | 1 | DEPLOY-01 | T-10-01..03 | `/health/db` returns no data, generic 503 on failure, rate limited | unit | `cd backend && uv run pytest tests/test_health.py -q` | ❌ W0 (created in task) | ⬜ pending |
+| 10-01-T2 | 10-01 | 1 | DEPLOY-01 | T-10-05 | N/A | script | `bash -n scripts/smoke.sh && (scripts/smoke.sh; test $? -eq 2)` | ❌ W0 (created in task) | ⬜ pending |
+| 10-05-T3 | 10-05 | 3 | DEPLOY-04 (D-11/D-12) | T-10-17 | local dev never touches prod | integration | `cd backend && uv run pytest tests/integration -v` (Local Supabase) | ✅ | ⬜ pending |
+| 10-06-T1 | 10-06 | 4 | DEPLOY-04 | T-10-20 | N/A | CLI | `supabase migration list` (20261010000000 Local+Remote) + `supabase db push` nothing to push | manual | ⬜ pending |
+| 10-07-T2 | 10-07 | 2 | DEPLOY-05 | T-10-25 | N/A | CI | `gh run list --workflow CI --branch main -L1` = success | manual | ⬜ pending |
+| 10-07-T3 | 10-07 | 2 | DEPLOY-01, DEPLOY-03 | T-10-26, T-10-27 | CORS rejects foreign origins; docs 404 | smoke | `scripts/smoke.sh https://<api>` | ✅ after 10-01 | ⬜ pending |
+| 10-08-T2 | 10-08 | 3 | DEPLOY-02 | T-10-35 | `VITE_API_URL` guard; CSP connect-src = API | manual dispatch | `gh workflow run "Deploy Frontend" && gh run watch` + `scripts/smoke.sh <api> <site>` | ✅ | ⬜ pending |
+| 10-08-T3 | 10-08 | 3 | DEPLOY-02 (D-16) | T-10-31, T-10-32 | site gated by Access | smoke + manual | `curl -sI <site>/` -> location cloudflareaccess.com | ✅ | ⬜ pending |
+| 10-09-T1 | 10-09 | 3 | DEPLOY-03 | T-10-36 | spoofed XFF ignored | live | 31x `curl -H "X-Forwarded-For: ..." <api>/health/db` -> last 429 | ✅ | ⬜ pending |
+| 10-10-T1 | 10-10 | 5 | DEPLOY-05 | T-10-40, T-10-41 | deploy only after CI success on push to main | yaml assert | `uv run --no-project --with pyyaml python -c ...` (see plan) | ✅ | ⬜ pending |
+| 10-10-T3 | 10-10 | 5 | DEPLOY-05 | T-10-41 | auto deploy after CI | CI | `gh run list --workflow "Deploy Frontend" -L1` event=workflow_run, success | manual | ⬜ pending |
 
 *Planner fills exact Task IDs. Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

@@ -59,7 +59,18 @@ Built before GSD was adopted; details in `PENDENCIAS.txt` and git history. No PL
   2. The workers.dev site loads the catalog, login works, and checkout ends in the WhatsApp message
   3. CI is green on `main` and the frontend deploys automatically on push
   4. Production DB has every migration in `backend/migrations/` applied
-**Plans**: TBD
+**Plans**: 10 plans
+Plans:
+- [ ] 10-01-PLAN.md — `GET /health/db` + unit tests; reusable `scripts/smoke.sh`
+- [ ] 10-02-PLAN.md — `docs/DEPLOY.md` runbook: Render/Access/UptimeRobot steps, limits table, rollback, Supabase CLI flow
+- [ ] 10-03-PLAN.md — Verify Supabase CLI package, install Docker/pg tools, rotate DB password, secrets to password manager
+- [ ] 10-04-PLAN.md — Local Supabase, encrypted prod backup, prod schema dump vs legacy replay diff
+- [ ] 10-05-PLAN.md — Close prod gaps, baseline migration + seed, archive legacy migrations, local `.env` + integration tests
+- [ ] 10-06-PLAN.md — [BLOCKING] Mark baseline applied on prod; restore-tested backup; transactional test-data cleanup
+- [ ] 10-07-PLAN.md — Push + green CI; Render service (Virginia, Free, After CI) with prod env; API smoke
+- [ ] 10-08-PLAN.md — First manual frontend deploy, Cloudflare Access gate, manual UI pass
+- [ ] 10-09-PLAN.md — XFF rate-limit verification behind Render; UptimeRobot 5-min monitor on `/health/db`
+- [ ] 10-10-PLAN.md — CI-gated `workflow_run` frontend auto-deploy; final push and smoke
 **Runbook**: `docs/DEPLOY.md` Phases 1–2
 
 ### Phase 11: Payments Go-Live
