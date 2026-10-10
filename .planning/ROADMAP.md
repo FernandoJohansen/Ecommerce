@@ -67,8 +67,8 @@ Built before GSD was adopted; details in `PENDENCIAS.txt` and git history. No PL
 Plans:
 **Wave 1**
 
-- [ ] 10-01-PLAN.md — `GET /health/db` + unit tests; reusable `scripts/smoke.sh`
-- [ ] 10-02-PLAN.md — `docs/DEPLOY.md` runbook: Render/Access/UptimeRobot steps, limits table, rollback, Supabase CLI flow
+- [x] 10-01-PLAN.md — `GET /health/db` + unit tests; reusable `scripts/smoke.sh`
+- [x] 10-02-PLAN.md — `docs/DEPLOY.md` runbook: Render/Access/UptimeRobot steps, limits table, rollback, Supabase CLI flow
 - [ ] 10-03-PLAN.md — Verify Supabase CLI package, install Docker/pg tools, rotate DB password, secrets to password manager
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -204,7 +204,7 @@ Plans:
 | 7. Shipping Quotes & Tracking | v1.0 | pre-GSD | Complete | 2026-07-18 |
 | 8. Order Management | v1.0 | pre-GSD | Complete | 2026-08-16 |
 | 9. Operational Hardening | v1.0 | pre-GSD | Complete | 2026-10-10 |
-| 10. Production Deploy | v1.1 | 0/TBD | Not started | - |
+| 10. Production Deploy | v1.1 | 2/10 | In Progress|  |
 | 11. Payments Go-Live | v1.1 | 0/TBD | Not started | - |
 | 12. Legal & Trust Pages | v1.1 | 0/TBD | Not started | - |
 | 13. Shipping & Email Activation | v1.1 | 0/TBD | Not started | - |
