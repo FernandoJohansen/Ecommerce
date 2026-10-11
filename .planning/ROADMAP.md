@@ -74,7 +74,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 10-04-PLAN.md — Local Supabase, encrypted prod backup, prod schema dump vs legacy replay diff
-- [ ] 10-07-PLAN.md — Push + green CI; Render service (Virginia, Free, After CI) with prod env; API smoke
+- [x] 10-07-PLAN.md — Push + green CI; Render service (Virginia, Free, After CI) with prod env; API smoke
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -204,7 +204,7 @@ Plans:
 | 7. Shipping Quotes & Tracking | v1.0 | pre-GSD | Complete | 2026-07-18 |
 | 8. Order Management | v1.0 | pre-GSD | Complete | 2026-08-16 |
 | 9. Operational Hardening | v1.0 | pre-GSD | Complete | 2026-10-10 |
-| 10. Production Deploy | v1.1 | 4/10 | In Progress|  |
+| 10. Production Deploy | v1.1 | 5/10 | In Progress|  |
 | 11. Payments Go-Live | v1.1 | 0/TBD | Not started | - |
 | 12. Legal & Trust Pages | v1.1 | 0/TBD | Not started | - |
 | 13. Shipping & Email Activation | v1.1 | 0/TBD | Not started | - |
